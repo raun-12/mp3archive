@@ -813,33 +813,78 @@
              });
         }
 
-        function getItemsInDirectory(allItems, dirPath) { /* ... same logic ... */
-             const items = new Map();
-             const dirPathLength = dirPath.length;
-             allItems.forEach(item => {
-                 if (!item.path.startsWith(dirPath) || item.path === dirPath) return;
-                 const relativePath = item.path.substring(dirPathLength);
-                 const slashIndex = relativePath.indexOf('/');
-                 if (slashIndex === -1 || (slashIndex === relativePath.length - 1 && item.isDirectory)) {
-                     items.set(item.path, item);
-                 } else {
-                     const firstPart = relativePath.substring(0, slashIndex);
-                     const subDirPath = dirPath + firstPart + '/';
-                     if (!items.has(subDirPath)) {
-                         let dirEntry = allItems.find(d => d.path === subDirPath && d.isDirectory);
-                         if (dirEntry) { items.set(subDirPath, dirEntry); }
-                         // else { console.warn("Synthesizing directory entry for:", subDirPath); items.set(subDirPath, { name: subDirPath, path: subDirPath, displayName: firstPart, isDirectory: true, isAudio: false, size: 0 }); }
+        function getItemsInDirectory(allItems, dirPath) {
+            const items = new Map(); // Use a Map to automatically handle duplicates (e.g., explicit dir + implicit)
+            const dirPathLength = dirPath.length;
+
+            allItems.forEach(item => {
+                // Skip self or items not starting with the path
+                if (!item.path.startsWith(dirPath) || item.path === dirPath) return;
+
+                const relativePath = item.path.substring(dirPathLength); // Path relative to current dir
+                const slashIndex = relativePath.indexOf('/');
+
+                if (slashIndex === -1) {
+                    // Item is directly in this directory (e.g., "file.mp3")
+                    // It cannot be an implicit directory at this point.
+                    if (!item.isDirectory) { // Only add files here
+                         items.set(item.path, item);
+                    } else if (item.path.endsWith('/')) {
+                        // Explicit directory entry ending with / directly inside current dirPath
+                        // e.g. current is 'root/' showing 'subfolder/'
+                        // This case might be less common with the logic below but covers explicit listings
+                         items.set(item.path, item);
+                    }
+                } else {
+                    // Item is deeper (e.g., "folder/file.mp3" or "folder/subfolder/")
+                    const firstPart = relativePath.substring(0, slashIndex); // The name of the immediate subdirectory ("folder")
+                    const subDirPath = dirPath + firstPart + '/'; // Construct the full path for this subdirectory ("root/folder/")
+
+                    // Check if we've already added this subdirectory
+                    if (!items.has(subDirPath)) {
+                        // Try to find an *explicit* entry for this subdirectory in the master list
+                        let dirEntry = allItems.find(d => d.path === subDirPath && d.isDirectory);
+
+                        if (dirEntry) {
+                            // Found an explicit entry, use it
+                            items.set(subDirPath, dirEntry);
+                        } else {
+                            // *** Synthesis Step ***
+                            // No explicit entry found, but we know items exist within it.
+                            // Create a synthetic directory entry.
+                             // Ensure display name uses the calculated part
+                            items.set(subDirPath, {
+                                name: subDirPath, // Internal name/key
+                                path: subDirPath, // Path for navigation
+                                displayName: firstPart, // User-visible name
+                                isDirectory: true,
+                                isAudio: false,
+                                size: 0, // Size unknown/irrelevant
+                                format: 'Directory (Synthesized)' // Mark for debugging if needed
+                            });
+                        }
+                    }
+                     // If item itself is an explicit directory deeper down (e.g. folder/subfolder/)
+                     // and it's directly inside the current dirPath (slashIndex === relativePath.length - 1)
+                     // it should be added. Check if the first condition missed it.
+                    else if (item.isDirectory && item.path.endsWith('/') && slashIndex === relativePath.length - 1) {
+                         if (!items.has(item.path)) { // Add if not already present
+                             items.set(item.path, item);
+                         }
                      }
-                 }
-             });
-             return Array.from(items.values()).sort((a, b) => {
-                  if (a.isDirectory && !b.isDirectory) return -1;
-                  if (!a.isDirectory && b.isDirectory) return 1;
-                  return a.displayName.localeCompare(b.displayName);
-              });
+                }
+            });
+
+            // Sort results: folders first, then files, alphabetically using displayName
+            return Array.from(items.values()).sort((a, b) => {
+                if (a.isDirectory && !b.isDirectory) return -1;
+                if (!a.isDirectory && b.isDirectory) return 1;
+                 // Ensure displayName comparison is robust
+                 const nameA = a.displayName || '';
+                 const nameB = b.displayName || '';
+                return nameA.localeCompare(nameB);
+            });
         }
-
-
         // --- Rendering Functions (Artist View) ---
          function renderArtistList() {
              if (currentMainView !== VIEW_MODE_ARTIST) return;
