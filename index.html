@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MP3 Archive Streamer</title>
+    <style>
+        /* --- Apple Music-inspired Dark Theme --- */
+        :root {
+            --bg-primary: #121212;
+            --bg-secondary: #1e1e1e;
+            --bg-tertiary: #282828;
+            --text-primary: #ffffff;
+            --text-secondary: #b3b3b3;
+            --accent-color: #ff375f;
+            --accent-hover: #ff5375;
+            --progress-bar: #535353;
+            --progress-filled: #ff375f;
+            --volume-track: #535353;
+            --volume-thumb: #ffffff;
+            --border-color: #2a2a2a;
+            --highlight-color: rgba(255, 55, 95, 0.3);
+            --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            --player-shadow: 0 -8px 24px rgba(0, 0, 0, 0.7);
+            --hint-bg: #282828;
+            --hint-text: #e0e0e0;
+        }
+
+        /* --- Base Styles --- */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0 0 150px 0; /* Adjusted padding */
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* --- Header --- */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, #ff375f, #ff6b8b);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            flex-shrink: 0;
+        }
+
+        /* --- Search Bar --- */
+        .search-container {
+             position: relative;
+             width: 0;
+             opacity: 0;
+             transition: all 0.3s ease;
+             margin-left: auto;
+             overflow: hidden;
+        }
+
+        .search-container.active {
+             width: min(300px, 100%);
+             opacity: 1;
+             margin-left: 20px;
+         }
+
+        #search-box {
+            width: 100%;
+            padding: 10px 15px 10px 40px;
+            border: none;
+            border-radius: 20px;
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            pointer-events: none;
+        }
+
+        /* --- Directory Navigation --- */
+        .directory-container {
+            margin-bottom: 20px;
+            overflow-x: auto;
+            white-space: nowrap;
+            padding-bottom: 5px;
+        }
+
+        .directory-path {
+            display: inline-flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .directory-crumb {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: color 0.2s, background-color 0.2s;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .directory-crumb:hover {
+            color: var(--text-primary);
+            background-color: var(--bg-tertiary);
+            text-decoration: none;
+        }
+        .directory-crumb.current {
+             color: var(--text-primary);
+             font-weight: 500;
+             cursor: default;
+        }
+        .directory-crumb.current:hover {
+            background-color: transparent;
+        }
+
+        .directory-separator {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin: 0 2px;
+        }
+
+        /* --- File Browser --- */
+        .file-browser {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .file-item {
+            background-color: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .file-item:hover {
+            background-color: var(--bg-tertiary);
+            transform: translateY(-3px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        .file-icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+            color: var(--accent-color);
+            line-height: 1;
+        }
+        .file-icon.folder {
+             color: #77aaff;
+         }
+
+        .file-name {
+            font-size: 0.9rem;
+            font-weight: 500;
+            white-space: normal;
+            overflow-wrap: break-word;
+            word-break: break-all;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.3;
+            margin-bottom: 5px;
+             max-height: calc(1.3em * 3);
+        }
+
+        .file-info {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: auto;
+        }
+
+        /* --- Player Section --- */
+        #player-section {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: rgba(30, 30, 30, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 15px 20px;
+            box-shadow: var(--player-shadow);
+            border-top: 1px solid var(--border-color);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+        }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            width: 25%;
+            min-width: 150px;
+             overflow: hidden;
+        }
+
+        .player-album-art {
+            width: 50px;
+            height: 50px;
+            background-color: var(--bg-tertiary);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            flex-shrink: 0;
+            color: var(--accent-color);
+            overflow: hidden;
+        }
+
+        .player-text {
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .player-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 2px;
+        }
+
+        .player-subtitle {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .player-controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            width: 50%;
+            max-width: 500px;
+        }
+
+        .player-buttons {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .player-button {
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+             line-height: 1;
+             position: relative; /* Needed for loader positioning */
+        }
+        .player-button:disabled {
+             opacity: 0.4;
+             cursor: not-allowed;
+        }
+        .player-button:not(:disabled):hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        /* Download button specific */
+        #download-btn {
+             font-size: 1.1rem;
+        }
+        #download-btn .btn-loader { /* Loader inside button */
+             position: absolute;
+             top: 50%;
+             left: 50%;
+             transform: translate(-50%, -50%);
+             width: 18px;
+             height: 18px;
+             border-width: 2px;
+             display: none; /* Hidden by default */
+         }
+         #download-btn.loading .btn-icon { /* Hide icon when loading */
+             visibility: hidden;
+         }
+         #download-btn.loading .btn-loader { /* Show loader when loading */
+             display: inline-block;
+         }
+
+
+        .play-pause-btn {
+            background-color: var(--accent-color);
+            width: 44px;
+            height: 44px;
+        }
+
+        .play-pause-btn:not(:disabled):hover {
+            background-color: var(--accent-hover);
+            transform: scale(1.05);
+        }
+
+        .progress-container {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .progress-time {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .progress-bar-wrapper {
+            flex-grow: 1;
+            height: 12px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+             padding: 4px 0;
+        }
+
+        .progress-bar-container {
+             width: 100%;
+             height: 4px;
+             background-color: var(--progress-bar);
+             border-radius: 2px;
+             overflow: hidden;
+             position: relative;
+         }
+
+        .progress-bar {
+            height: 100%;
+            background-color: var(--progress-filled);
+            border-radius: 2px;
+            width: 0%;
+             position: absolute;
+             left: 0;
+             top: 0;
+        }
+        .progress-bar-wrapper:hover .progress-bar {
+            background-color: var(--accent-hover);
+        }
+
+
+        .player-extras {
+            display: flex;
+            align-items: center;
+            gap: 10px; /* Reduced gap */
+            width: 25%;
+            justify-content: flex-end;
+            min-width: 150px; /* Adjusted min-width */
+            flex-wrap: wrap; /* Allow wrapping */
+        }
+
+        /* --- Pitch Shifter / Speed Controls --- */
+        .pitch-control, .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            /* flex-grow: 1; Allow shrinking/growing a bit */
+            min-width: 120px; /* Ensure they don't get too small */
+        }
+
+        .control-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            min-width: 35px;
+             text-align: right;
+        }
+
+        .control-slider {
+            width: 70px; /* Slightly reduced width */
+            height: 4px;
+            appearance: none;
+            background-color: var(--volume-track);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .control-slider:hover {
+            background-color: #6a6a6a;
+        }
+
+        .control-slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            background: var(--volume-thumb);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .control-slider:active::-webkit-slider-thumb {
+            transform: scale(1.2);
+        }
+        .control-slider::-moz-range-thumb {
+             width: 12px;
+             height: 12px;
+             background: var(--volume-thumb);
+             border-radius: 50%;
+             cursor: pointer;
+             border: none;
+        }
+
+        .volume-icon {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            width: 20px;
+            text-align: center;
+        }
+
+        /* --- Status Messages --- */
+        .status-message {
+            text-align: center;
+            padding: 30px 20px;
+            color: var(--text-secondary);
+            font-size: 1rem;
+            border-radius: 8px;
+            background-color: var(--bg-secondary);
+            margin-top: 20px;
+            border: 1px dashed var(--border-color);
+            display: none;
+        }
+        .status-message.visible {
+             display: block;
+        }
+
+        /* --- Loader --- */
+        /* General loader */
+        .loader {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            border-top-color: var(--accent-color);
+            animation: spin 0.8s ease-in-out infinite;
+            vertical-align: middle;
+            margin-right: 10px;
+        }
+        /* Loader for album art placeholder */
+         .player-album-art .loader {
+             width: 24px;
+             height: 24px;
+             margin-right: 0;
+         }
+         /* Loader for button */
+          .btn-loader {
+              width: 16px; /* Smaller for buttons */
+              height: 16px;
+              border: 2px solid rgba(255, 255, 255, 0.3);
+              border-radius: 50%;
+              border-top-color: var(--text-primary); /* White loader on button */
+              animation: spin 0.8s ease-in-out infinite;
+          }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+         /* --- Search Hint Popup --- */
+         #search-hint-popup {
+             position: fixed;
+             bottom: 20px;
+             right: 20px;
+             background-color: var(--hint-bg);
+             color: var(--hint-text);
+             padding: 10px 15px;
+             border-radius: 6px;
+             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+             z-index: 101;
+             display: none;
+             align-items: center;
+             gap: 10px;
+             font-size: 0.85rem;
+             opacity: 0;
+             transform: translateY(10px);
+             transition: opacity 0.3s ease, transform 0.3s ease;
+         }
+         #search-hint-popup.visible {
+             display: flex;
+              opacity: 1;
+              transform: translateY(0);
+         }
+         #close-hint-btn {
+             background: none;
+             border: none;
+             color: var(--text-secondary);
+             font-size: 1.2rem;
+             cursor: pointer;
+             padding: 0 5px;
+             line-height: 1;
+             margin-left: 5px;
+         }
+          #close-hint-btn:hover {
+              color: var(--text-primary);
+          }
+
+
+        /* --- Responsive Design --- */
+        @media (max-width: 900px) {
+            .player-info, .player-extras {
+                width: auto;
+                flex-grow: 1;
+            }
+             .player-controls {
+                 width: auto;
+                 flex-grow: 2;
+             }
+             .player-extras {
+                 justify-content: center; /* Center items when wrapped */
+             }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                 padding-bottom: 180px; /* Increased space for potentially wrapped player */
+             }
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            .search-container.active {
+                width: 100%;
+                margin-left: 0;
+                margin-top: 10px;
+            }
+
+            .file-browser {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            }
+
+            #player-section {
+                flex-direction: column;
+                padding: 10px;
+                gap: 10px;
+                height: auto;
+            }
+
+            .player-info, .player-controls, .player-extras {
+                width: 100%;
+                 max-width: none;
+            }
+
+            .player-info {
+                 justify-content: flex-start;
+                 text-align: left;
+             }
+
+            .player-extras {
+                 justify-content: space-around; /* Distribute space */
+                 gap: 15px; /* Adjust gap for wrapping */
+                 padding-top: 5px; /* Add space if wrapped */
+            }
+             .pitch-control, .volume-control {
+                 flex-grow: 1;
+                 justify-content: center;
+                 min-width: 130px; /* Slightly wider on mobile */
+             }
+             .control-slider {
+                 width: 80px; /* Adjust slider width */
+             }
+             #download-btn {
+                 /* Allow button to take natural size or grow slightly */
+                 flex-grow: 0;
+                 flex-shrink: 0;
+             }
+        }
+         @media (max-width: 480px) {
+             body {
+                 padding-bottom: 190px; /* Even more space */
+             }
+             .file-browser {
+                 grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+             }
+              .player-buttons {
+                 gap: 15px;
+             }
+             .player-button {
+                 width: 32px;
+                 height: 32px;
+                 font-size: 1rem;
+             }
+             .play-pause-btn {
+                 width: 40px;
+                 height: 40px;
+             }
+              .player-extras {
+                 gap: 10px; /* Reduce gap */
+                 justify-content: center;
+              }
+              .pitch-control, .volume-control {
+                  width: 100%; /* Make sliders take full width when wrapped */
+                  justify-content: center;
+                  min-width: unset; /* Remove min-width */
+              }
+              .control-slider {
+                   width: 120px; /* Increase slider width when stacked */
+              }
+              #download-btn {
+                  margin-top: 5px; /* Add space above button if wrapped */
+              }
+              #search-hint-popup {
+                  bottom: 10px;
+                  right: 10px;
+                  font-size: 0.8rem;
+                  padding: 8px 12px;
+              }
+         }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>MP3 Archive</h1>
+            <div class="search-container" id="search-container">
+                <span class="search-icon">🔍</span>
+                <input type="search" id="search-box" placeholder="Search all files... (Press '/')">
+            </div>
+        </div>
+
+        <div class="directory-container">
+            <div class="directory-path" id="directory-path">
+                <!-- Directory crumbs will be added here -->
+            </div>
+        </div>
+
+        <div id="file-browser" class="file-browser">
+            <!-- Files and directories will be displayed here -->
+        </div>
+
+        <div id="status-message" class="status-message visible">
+            <span class="loader"></span>Loading archive structure...
+        </div>
+    </div>
+
+    <div id="player-section">
+        <div class="player-info">
+            <div class="player-album-art" id="player-album-art">🎵</div>
+            <div class="player-text">
+                <div id="now-playing" class="player-title">Not playing</div>
+                <div id="now-playing-subtitle" class="player-subtitle">Select an MP3 file to play</div>
+            </div>
+        </div>
+
+        <div class="player-controls">
+            <div class="player-buttons">
+                <button class="player-button" id="prev-btn" disabled>⏮</button>
+                <button id="play-pause-btn" class="player-button play-pause-btn" disabled>▶</button>
+                <button class="player-button" id="next-btn" disabled>⏭</button>
+            </div>
+            <div class="progress-container">
+                <span id="current-time" class="progress-time">0:00</span>
+                <div class="progress-bar-wrapper" id="progress-wrapper">
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="progress-bar"></div>
+                    </div>
+                </div>
+                <span id="duration" class="progress-time">0:00</span>
+            </div>
+        </div>
+
+        <div class="player-extras">
+            <div class="pitch-control">
+                <span class="control-label">Speed</span>
+                <input type="range" class="control-slider pitch-slider" id="pitch-slider" min="0.5" max="2" step="0.05" value="1" disabled>
+            </div>
+            <div class="volume-control">
+                <span class="volume-icon" id="volume-icon">🔊</span>
+                <input type="range" class="control-slider volume-slider" id="volume-slider" min="0" max="1" step="0.05" value="0.7">
+            </div>
+            <button class="player-button" id="download-btn" title="Download current track" disabled>
+                <span class="btn-icon">💾</span>
+                <span class="loader btn-loader"></span>
+            </button>
+        </div>
+
+        <audio id="audio-element-for-context" style="display: none;"></audio>
+    </div>
+
+     <!-- Search Hint Popup -->
+     <div id="search-hint-popup">
+         <span>Tip: Press <kbd>/</kbd> to search files</span>
+         <button id="close-hint-btn" title="Dismiss hint">✕</button>
+     </div>
+
+
+    <script>
+        // --- Configuration ---
+        const archiveIdentifier = 'mp3archive'; // <<< CHANGE THIS to your Archive.org identifier
+        const archiveApiUrl = `https://archive.org/metadata/${archiveIdentifier}`;
+        const archiveDownloadUrlBase = `https://archive.org/download/${archiveIdentifier}`;
+        const excludedExtensions = ['.xml', '.txt', '.torrent', '.jpg', '.png', '.gif', '.log', '.php', '.html', '.css', '.js', '.pdf', '.zip', '.rar', '.jpeg', '.md5', '.json', '_meta.sqlite', '_files.xml'];
+
+        // --- DOM Elements ---
+        const searchContainer = document.getElementById('search-container');
+        const searchBox = document.getElementById('search-box');
+        const directoryPathEl = document.getElementById('directory-path');
+        const fileBrowserEl = document.getElementById('file-browser');
+        const statusMessageEl = document.getElementById('status-message');
+        const playerAlbumArt = document.getElementById('player-album-art');
+        const nowPlayingEl = document.getElementById('now-playing');
+        const nowPlayingSubtitleEl = document.getElementById('now-playing-subtitle');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const progressWrapper = document.getElementById('progress-wrapper');
+        const progressBar = document.getElementById('progress-bar');
+        const currentTimeEl = document.getElementById('current-time');
+        const durationEl = document.getElementById('duration');
+        const volumeSlider = document.getElementById('volume-slider');
+        const volumeIcon = document.getElementById('volume-icon');
+        const pitchSlider = document.getElementById('pitch-slider');
+        const downloadBtn = document.getElementById('download-btn');
+        const searchHintPopup = document.getElementById('search-hint-popup');
+        const closeHintBtn = document.getElementById('close-hint-btn');
+
+        // --- Audio State ---
+        let audioContext;
+        let sourceNode;
+        let gainNode;
+        let currentAudioBuffer;
+        let isPlaying = false;
+        let currentPlaybackRate = 1.0;
+        let currentVolume = 0.7;
+        let progressUpdateInterval;
+        let _startTime = 0;
+        let _startOffset = 0;
+        let _pausedTime = 0;
+
+        // --- Data State ---
+        let currentDirectory = '';
+        let allArchiveFiles = [];
+        let currentDirectoryItems = [];
+        let currentTracklist = [];
+        let currentTrackIndex = -1;
+        let currentPlayingFile = null; // { name, path, displayName, size }
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            setupAudioContext();
+            loadArchiveStructure();
+            setupEventListeners();
+            updatePlayerUI();
+            showSearchHintIfNeeded();
+        });
+
+        function setupAudioContext() {
+            const initAudio = () => {
+                if (!audioContext) {
+                    try {
+                        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                        gainNode = audioContext.createGain();
+                        gainNode.gain.value = currentVolume;
+                        gainNode.connect(audioContext.destination);
+                        console.log("AudioContext initialized.");
+                        volumeSlider.value = currentVolume;
+                        updateVolumeIcon(currentVolume);
+                    } catch (e) {
+                        console.error("Error creating AudioContext:", e);
+                        displayStatus("Error: Web Audio API not supported or blocked.", true);
+                    }
+                }
+            };
+            document.addEventListener('click', initAudio, { once: true });
+            document.addEventListener('keydown', initAudio, { once: true });
+        }
+
+
+        // --- Archive.org API & Data Handling ---
+        async function loadArchiveStructure() {
+            showLoading("Loading archive structure...");
+            try {
+                const response = await fetch(archiveApiUrl);
+                if (!response.ok) throw new Error(`Failed to load archive metadata (Status: ${response.status})`);
+                const data = await response.json();
+
+                if (!data.files || !Array.isArray(data.files)) {
+                    throw new Error('Invalid archive structure: No files array found.');
+                }
+
+                const processedFiles = data.files.map(file => {
+                    const path = file.name;
+                    let displayName = path;
+                    if (path.includes('/')) {
+                         const parts = path.split('/').filter(p => p);
+                         displayName = parts[parts.length - 1] || '';
+                         if (path.endsWith('/')) {
+                              displayName += '/';
+                         }
+                    }
+                     if (path.endsWith('/') && displayName === '/') {
+                         const parts = path.split('/');
+                         displayName = parts[parts.length - 2] + '/';
+                     }
+
+                    return {
+                        name: file.name, path: path,
+                        size: file.size ? parseInt(file.size) : 0,
+                        format: file.format || '',
+                        isDirectory: path.endsWith('/') || data.files.some(other => other.name !== path && other.name.startsWith(path + '/')),
+                        isAudio: path.toLowerCase().endsWith('.mp3'),
+                        displayName: displayName
+                    };
+                });
+
+                allArchiveFiles = processedFiles
+                    .filter(file => {
+                        if (file.isDirectory) return true;
+                        if (file.isAudio) {
+                            const extension = file.path.substring(file.path.lastIndexOf('.')).toLowerCase();
+                            return !excludedExtensions.includes(extension);
+                        }
+                        return false;
+                    })
+                    .sort((a, b) => { // Sort folders first, then files alphabetically
+                         if (a.isDirectory && !b.isDirectory) return -1;
+                         if (!a.isDirectory && b.isDirectory) return 1;
+                         return a.displayName.localeCompare(b.displayName);
+                     });
+
+                updateDirectoryView('');
+                hideLoading();
+
+            } catch (error) {
+                console.error('Error loading archive:', error);
+                displayStatus(`Error loading archive: ${error.message}`, true);
+            }
+        }
+
+        // --- Directory Navigation & Display ---
+        function updateDirectoryView(path) {
+            currentDirectory = path;
+            searchBox.value = '';
+            updateBreadcrumbs();
+
+            currentDirectoryItems = getItemsInDirectory(allArchiveFiles, path);
+
+            // Already sorted by loadArchiveStructure or getItemsInDirectory needs sort?
+            // Let's keep sort here for safety, folders first
+             const directories = currentDirectoryItems
+                 .filter(item => item.isDirectory)
+                 .sort((a, b) => a.displayName.localeCompare(b.displayName));
+             const files = currentDirectoryItems
+                 .filter(item => !item.isDirectory && item.isAudio)
+                 .sort((a, b) => a.displayName.localeCompare(b.displayName));
+
+             const itemsToRender = [...directories, ...files];
+            renderFileBrowser(itemsToRender);
+
+            currentTracklist = files;
+            updatePrevNextButtons();
+
+            if (currentPlayingFile) {
+                currentTrackIndex = currentTracklist.findIndex(track => track.path === currentPlayingFile.path);
+            } else {
+                currentTrackIndex = -1;
+            }
+            updatePrevNextButtons();
+
+            if (itemsToRender.length === 0 && !searchBox.value) {
+                displayStatus("This directory is empty.", false);
+            } else if (itemsToRender.length > 0) {
+                hideLoading();
+            }
+        }
+
+         function getItemsInDirectory(allItems, dirPath) {
+             const items = new Map();
+             const dirPathLength = dirPath.length;
+
+             allItems.forEach(item => {
+                 if (!item.path.startsWith(dirPath) || item.path === dirPath) return;
+
+                 const relativePath = item.path.substring(dirPathLength);
+                 const slashIndex = relativePath.indexOf('/');
+
+                 if (slashIndex === -1) { // File or folder directly in this directory
+                     if (!item.isDirectory) { // File
+                          items.set(item.path, item);
+                     } else if (relativePath.endsWith('/')) { // Explicit directory entry
+                          items.set(item.path, item);
+                     }
+                 } else { // Item is deeper, find the immediate subdirectory it belongs to
+                     const firstPart = relativePath.substring(0, slashIndex + 1); // e.g., "subdir/"
+                     const subDirPath = dirPath + firstPart;
+
+                     if (!items.has(subDirPath)) {
+                         let dirEntry = allItems.find(d => d.path === subDirPath && d.isDirectory);
+                         if (!dirEntry) { // Synthesize if missing (less likely now)
+                             dirEntry = {
+                                 name: subDirPath, path: subDirPath,
+                                 displayName: firstPart,
+                                 isDirectory: true, isAudio: false, size: 0, format: 'Directory'
+                             };
+                         }
+                         if (!dirEntry.displayName || dirEntry.displayName === dirEntry.path) {
+                             dirEntry.displayName = firstPart;
+                         }
+                         items.set(subDirPath, dirEntry);
+                     }
+                 }
+             });
+             // Sort results: folders first, then files, alphabetically within groups
+             return Array.from(items.values()).sort((a, b) => {
+                  if (a.isDirectory && !b.isDirectory) return -1;
+                  if (!a.isDirectory && b.isDirectory) return 1;
+                  return a.displayName.localeCompare(b.displayName);
+              });
+         }
+
+
+        function updateBreadcrumbs() {
+            directoryPathEl.innerHTML = '';
+            const parts = currentDirectory.split('/').filter(part => part !== '');
+            let pathAccumulator = '';
+
+            const rootCrumb = createCrumb('Root', '', currentDirectory === '');
+            directoryPathEl.appendChild(rootCrumb);
+
+            parts.forEach((part, index) => {
+                pathAccumulator += part + '/';
+                const isCurrent = (pathAccumulator === currentDirectory);
+
+                const separator = document.createElement('span');
+                separator.className = 'directory-separator';
+                separator.textContent = '›';
+                directoryPathEl.appendChild(separator);
+
+                const crumb = createCrumb(part, pathAccumulator, isCurrent);
+                directoryPathEl.appendChild(crumb);
+            });
+        }
+
+
+        function createCrumb(text, path, isCurrent = false) {
+            const crumb = document.createElement('span');
+            crumb.className = 'directory-crumb';
+            crumb.textContent = text;
+            crumb.dataset.path = path;
+
+            if (isCurrent) {
+                crumb.classList.add('current');
+            } else {
+                crumb.addEventListener('click', () => updateDirectoryView(crumb.dataset.path));
+            }
+            return crumb;
+        }
+
+
+        function renderFileBrowser(items) {
+            fileBrowserEl.innerHTML = '';
+
+            items.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'file-item';
+                itemEl.dataset.path = item.path;
+
+                const icon = document.createElement('div');
+                icon.className = 'file-icon';
+                let effectiveDisplayName = item.displayName;
+
+                if (item.isDirectory) {
+                    icon.textContent = '📁';
+                    icon.classList.add('folder');
+                    itemEl.addEventListener('click', () => updateDirectoryView(item.path));
+                    effectiveDisplayName = effectiveDisplayName.replace(/\/$/, '');
+                } else if (item.isAudio) {
+                    icon.textContent = '🎵';
+                    itemEl.addEventListener('click', () => playAudioFile(item));
+                } else {
+                    icon.textContent = '📄';
+                    itemEl.style.cursor = 'default';
+                    itemEl.style.opacity = '0.6';
+                }
+
+                const nameEl = document.createElement('div');
+                nameEl.className = 'file-name';
+                nameEl.textContent = effectiveDisplayName || (item.isDirectory ? '[Folder]' : '[File]');
+                nameEl.title = effectiveDisplayName || item.path;
+
+                const infoEl = document.createElement('div');
+                infoEl.className = 'file-info';
+                infoEl.textContent = item.isDirectory ? 'Folder' : formatFileSize(item.size);
+
+                itemEl.appendChild(icon);
+                itemEl.appendChild(nameEl);
+                itemEl.appendChild(infoEl);
+                fileBrowserEl.appendChild(itemEl);
+            });
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === undefined || bytes === null || bytes < 0) return '';
+            if (bytes < 1024) return bytes + ' B';
+            const i = Math.floor(Math.log(bytes) / Math.log(1024));
+            const units = ['KB', 'MB', 'GB', 'TB'];
+            const unitIndex = Math.max(0, Math.min(i - 1, units.length - 1));
+            return parseFloat((bytes / Math.pow(1024, i)).toFixed(1)) + ' ' + units[unitIndex];
+        }
+
+
+        // --- Search Functionality ---
+        function handleSearch() {
+            const searchTerm = searchBox.value.toLowerCase().trim();
+
+            if (!searchTerm) {
+                updateDirectoryView(currentDirectory);
+                return;
+            }
+
+            const results = allArchiveFiles.filter(file =>
+                !file.isDirectory && file.isAudio && file.path.toLowerCase().includes(searchTerm)
+            ).sort((a, b) => a.displayName.localeCompare(b.displayName));
+
+            renderFileBrowser(results);
+
+            currentTracklist = results;
+            currentTrackIndex = currentPlayingFile ? currentTracklist.findIndex(track => track.path === currentPlayingFile.path) : -1;
+            updatePrevNextButtons();
+
+            if (results.length === 0) {
+                displayStatus(`No MP3 files found matching "${searchTerm}".`, false);
+            } else {
+                hideLoading();
+            }
+
+            directoryPathEl.innerHTML = '';
+            const searchCrumb = createCrumb(`Search Results`, '', true);
+            directoryPathEl.appendChild(searchCrumb);
+        }
+
+
+        // --- Audio Playback ---
+        function playAudioFile(file) {
+            if (!file || !file.isAudio) return;
+            if (!audioContext) { alert("Audio system not ready. Click page first."); return; }
+
+            console.log("Playing:", file.path);
+            const fileUrl = `${archiveDownloadUrlBase}/${encodeURIComponent(file.path)}`;
+            stopPlayback();
+
+            currentPlayingFile = file;
+            currentTrackIndex = currentTracklist.findIndex(track => track.path === file.path);
+            updatePlayerUI(true); // Show loading
+
+            fetch(fileUrl)
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return response.arrayBuffer();
+                })
+                .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+                .then(decodedBuffer => {
+                    if (!currentPlayingFile || file.path !== currentPlayingFile.path) return; // Changed during load
+                    currentAudioBuffer = decodedBuffer;
+                    startPlayback(0);
+                    updatePlayerUI();
+                    updatePrevNextButtons();
+                })
+                .catch(error => {
+                    console.error('Error playing audio:', error);
+                     if (currentPlayingFile && file.path === currentPlayingFile.path) {
+                         nowPlayingSubtitleEl.textContent = `Error: Playback failed`;
+                         stopPlayback(true); // Clear info on error
+                     }
+                });
+        }
+
+        function startPlayback(offset = 0) {
+            if (!currentAudioBuffer || !audioContext || !gainNode) return;
+
+             if (sourceNode) { try { sourceNode.stop(); } catch (e) {} sourceNode.disconnect(); }
+
+            sourceNode = audioContext.createBufferSource();
+            sourceNode.buffer = currentAudioBuffer;
+            sourceNode.playbackRate.value = currentPlaybackRate;
+            sourceNode.connect(gainNode);
+
+            const validOffset = Math.max(0, Math.min(offset, currentAudioBuffer.duration));
+            sourceNode.start(0, validOffset);
+
+            _startOffset = validOffset;
+            _startTime = audioContext.currentTime;
+            _pausedTime = 0;
+
+            isPlaying = true;
+            sourceNode.onended = handleTrackEnd;
+
+            clearInterval(progressUpdateInterval);
+            progressUpdateInterval = setInterval(updateProgress, 250);
+            updatePlayerUI();
+        }
+
+         function stopPlayback(clearInfo = false) {
+             clearInterval(progressUpdateInterval);
+             if (sourceNode) {
+                 sourceNode.onended = null;
+                 try { sourceNode.stop(); } catch (e) {}
+                 sourceNode.disconnect();
+                 sourceNode = null;
+             }
+             if (isPlaying) { // Store time only if it was playing
+                 _pausedTime = getCurrentPlaybackTime();
+             }
+             isPlaying = false;
+
+             if (clearInfo) {
+                 currentPlayingFile = null;
+                 currentAudioBuffer = null;
+                 currentTrackIndex = -1;
+                 _startOffset = 0;
+                 _pausedTime = 0;
+                 updatePlayerUI();
+                 updatePrevNextButtons();
+             } else if (currentAudioBuffer) {
+                 updatePlayerUI();
+                 updateProgress(); // Update progress to paused state
+             }
+         }
+
+
+        function togglePlayback() {
+            if (!audioContext || !currentAudioBuffer) return;
+
+            if (isPlaying) {
+                 // Pause logic moved mostly into stopPlayback
+                 stopPlayback(false);
+                 console.log("Paused at:", formatTime(_pausedTime));
+            } else {
+                // Play/Resume
+                const resumeTime = (_pausedTime > 0 && _pausedTime < currentAudioBuffer.duration) ? _pausedTime : 0;
+                startPlayback(resumeTime);
+                console.log("Playing from:", formatTime(resumeTime));
+            }
+        }
+
+
+         function getCurrentPlaybackTime() {
+             if (!audioContext || !currentAudioBuffer) return 0;
+             if (isPlaying && sourceNode && _startTime > 0) {
+                 const elapsedTime = audioContext.currentTime - _startTime;
+                 return Math.max(0, Math.min(currentAudioBuffer.duration, _startOffset + (elapsedTime * currentPlaybackRate)));
+             } else { // Paused or stopped
+                 return _pausedTime;
+             }
+         }
+
+
+        function handleTrackEnd() {
+            console.log("Track ended naturally.");
+             clearInterval(progressUpdateInterval);
+             isPlaying = false;
+             sourceNode = null;
+             _startOffset = 0;
+             _pausedTime = 0;
+             _startTime = 0;
+             updateProgress(); // Show 0:00
+             updatePlayerUI();
+             playNext(); // Auto-play next
+        }
+
+         function playNext() {
+             if (currentTracklist.length === 0) return;
+             let nextIndex = currentTrackIndex + 1;
+             if (nextIndex >= currentTracklist.length) nextIndex = 0;
+             if (currentTracklist[nextIndex]) playAudioFile(currentTracklist[nextIndex]);
+             // updatePrevNextButtons called within playAudioFile -> updatePlayerUI
+         }
+
+         function playPrev() {
+             if (currentTracklist.length === 0) return;
+             let prevIndex = currentTrackIndex - 1;
+             if (prevIndex < 0) prevIndex = currentTracklist.length - 1;
+              if (currentTracklist[prevIndex]) playAudioFile(currentTracklist[prevIndex]);
+             // updatePrevNextButtons called within playAudioFile -> updatePlayerUI
+         }
+
+        // --- Direct Download Function ---
+         async function triggerDownload() {
+             if (!currentPlayingFile || !currentPlayingFile.path) {
+                 console.warn("No file selected or path missing, cannot download.");
+                 return;
+             }
+              if (downloadBtn.classList.contains('loading') || downloadBtn.disabled) {
+                  return; // Already downloading or disabled
+              }
+
+             const fileUrl = `${archiveDownloadUrlBase}/${encodeURIComponent(currentPlayingFile.path)}`;
+             const filename = currentPlayingFile.displayName.replace(/\/$/, '') || currentPlayingFile.path.split('/').pop();
+
+             console.log(`Initiating download for: ${filename}`);
+             downloadBtn.classList.add('loading');
+             downloadBtn.disabled = true; // Disable button during fetch
+
+             try {
+                 const response = await fetch(fileUrl);
+                 if (!response.ok) {
+                     throw new Error(`HTTP error! Status: ${response.status}`);
+                 }
+                 const blob = await response.blob();
+
+                 // Use Blob URL for download link
+                 const blobUrl = URL.createObjectURL(blob);
+                 const link = document.createElement('a');
+                 link.href = blobUrl;
+                 link.download = filename;
+
+                 document.body.appendChild(link);
+                 link.click();
+                 document.body.removeChild(link);
+
+                 // Clean up the Blob URL after a short delay
+                 setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+
+                 console.log(`Download triggered for ${filename}`);
+
+             } catch (error) {
+                 console.error("Download failed:", error);
+                 alert(`Failed to download "${filename}". Error: ${error.message}`); // Inform user
+             } finally {
+                 // Always re-enable the button and remove loading state
+                  downloadBtn.classList.remove('loading');
+                  // Re-enable only if a track is still considered loaded
+                  downloadBtn.disabled = !currentAudioBuffer;
+             }
+         }
+
+
+        // --- UI Updates ---
+        function updatePlayerUI(isLoading = false) {
+             const hasActiveTrack = !!currentPlayingFile;
+             const hasBuffer = !!currentAudioBuffer;
+             const canControl = hasActiveTrack && hasBuffer && !isLoading;
+
+             playPauseBtn.disabled = !hasActiveTrack || (isLoading && !hasBuffer) || !audioContext;
+             pitchSlider.disabled = !canControl;
+             downloadBtn.disabled = !canControl || downloadBtn.classList.contains('loading'); // Keep disabled if loading
+             updatePrevNextButtons(); // Handles prev/next state
+
+             if (isLoading) {
+                 playerAlbumArt.innerHTML = '<span class="loader"></span>';
+                 nowPlayingEl.textContent = currentPlayingFile?.displayName.replace(/\/$/, '') || 'Loading...';
+                 nowPlayingSubtitleEl.textContent = 'Loading audio...';
+                 playPauseBtn.textContent = '⏳';
+                 durationEl.textContent = '--:--';
+                 currentTimeEl.textContent = '--:--';
+                 progressBar.style.width = '0%';
+             } else if (hasActiveTrack && hasBuffer) {
+                 playerAlbumArt.textContent = '🎵';
+                 nowPlayingEl.textContent = currentPlayingFile.displayName.replace(/\/$/, '');
+                 const path = currentPlayingFile.path;
+                 const lastSlash = path.lastIndexOf('/');
+                 let dirDisplay = (lastSlash > 0) ? path.substring(0, lastSlash) : 'Root';
+                 nowPlayingSubtitleEl.textContent = dirDisplay;
+                 playPauseBtn.textContent = isPlaying ? '⏸' : '▶';
+                 durationEl.textContent = formatTime(currentAudioBuffer.duration);
+             } else { // Default state
+                 playerAlbumArt.textContent = '🎵';
+                 nowPlayingEl.textContent = 'Not playing';
+                 nowPlayingSubtitleEl.textContent = 'Select an MP3 file to play';
+                 playPauseBtn.textContent = '▶';
+                 durationEl.textContent = '0:00';
+                 currentTimeEl.textContent = '0:00';
+                 progressBar.style.width = '0%';
+             }
+         }
+
+        function updateProgress() {
+            if (!audioContext || !currentAudioBuffer) {
+                currentTimeEl.textContent = '0:00';
+                progressBar.style.width = '0%';
+                return;
+            }
+            const currentPosition = getCurrentPlaybackTime();
+            currentTimeEl.textContent = formatTime(currentPosition);
+            const progressPercent = (currentAudioBuffer.duration > 0) ? (currentPosition / currentAudioBuffer.duration) * 100 : 0;
+            progressBar.style.width = `${Math.min(100, progressPercent)}%`;
+        }
+
+        function updateVolumeIcon(volume) {
+             volumeIcon.textContent = (volume <= 0) ? '🔇' : (volume < 0.5) ? '🔈' : '🔊';
+        }
+
+         function updatePrevNextButtons() {
+             const canNavigate = currentTracklist.length > 1 && !!currentAudioBuffer;
+             prevBtn.disabled = !canNavigate;
+             nextBtn.disabled = !canNavigate;
+         }
+
+
+        // --- Helper Functions ---
+        function formatTime(seconds) {
+            if (isNaN(seconds) || !isFinite(seconds) || seconds < 0) return '0:00';
+            const totalSeconds = Math.floor(seconds);
+            const mins = Math.floor(totalSeconds / 60);
+            const secs = totalSeconds % 60;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function displayStatus(message, isError = false) {
+            statusMessageEl.innerHTML = message;
+            statusMessageEl.style.color = isError ? 'var(--accent-color)' : 'var(--text-secondary)';
+            statusMessageEl.classList.add('visible');
+            fileBrowserEl.innerHTML = '';
+        }
+
+        function showLoading(message = "Loading...") {
+             statusMessageEl.innerHTML = `<span class="loader"></span>${message}`;
+             statusMessageEl.style.color = 'var(--text-secondary)';
+             statusMessageEl.classList.add('visible');
+             fileBrowserEl.innerHTML = '';
+        }
+
+        function hideLoading() {
+            statusMessageEl.classList.remove('visible');
+        }
+
+         // --- Search Hint Popup Logic ---
+         function showSearchHintIfNeeded() {
+             if (localStorage.getItem('searchHintDismissed') !== 'true') {
+                 // Slight delay to ensure layout is stable
+                 setTimeout(() => searchHintPopup.classList.add('visible'), 500);
+             }
+         }
+
+         function dismissSearchHint() {
+             searchHintPopup.style.opacity = '0'; // Fade out first
+             setTimeout(() => searchHintPopup.classList.remove('visible'), 300); // Then hide
+             try {
+                 localStorage.setItem('searchHintDismissed', 'true');
+             } catch (e) {
+                 console.warn("Could not save hint dismissal state to localStorage:", e);
+             }
+         }
+
+
+        // --- Event Listeners ---
+        function setupEventListeners() {
+            // Search box toggle & activation
+            document.addEventListener('keydown', (e) => {
+                 const activeEl = document.activeElement;
+                 const isInputFocused = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable);
+
+                if (e.key === '/' && !isInputFocused) {
+                    e.preventDefault();
+                    searchContainer.classList.add('active');
+                    searchBox.focus();
+                } else if (e.key === 'Escape' && searchContainer.classList.contains('active')) {
+                     searchContainer.classList.remove('active');
+                     searchBox.blur();
+                     if (searchBox.value) {
+                         searchBox.value = '';
+                         updateDirectoryView(currentDirectory);
+                     }
+                }
+            });
+
+             searchBox.addEventListener('input', handleSearch);
+             searchBox.addEventListener('search', () => { if (!searchBox.value) handleSearch(); });
+
+
+            // Player controls
+            playPauseBtn.addEventListener('click', togglePlayback);
+            prevBtn.addEventListener('click', playPrev);
+            nextBtn.addEventListener('click', playNext);
+            downloadBtn.addEventListener('click', triggerDownload); // Direct download listener
+
+
+            // Progress bar seeking
+            progressWrapper.addEventListener('click', (e) => {
+                if (!currentAudioBuffer || !audioContext) return;
+
+                const rect = progressWrapper.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                const progressRatio = Math.max(0, Math.min(1, clickX / rect.width));
+                const seekTime = progressRatio * currentAudioBuffer.duration;
+
+                console.log(`Seeking to: ${formatTime(seekTime)} (${(progressRatio * 100).toFixed(1)}%)`);
+
+                if (isPlaying) {
+                    const rate = currentPlaybackRate; // Preserve rate
+                    stopPlayback(false);
+                    currentPlaybackRate = rate;
+                    startPlayback(seekTime);
+                } else {
+                    _startOffset = seekTime; // Update position even if paused/stopped
+                    _pausedTime = seekTime;
+                    updateProgress(); // Show immediate visual feedback
+                }
+            });
+
+            // Volume control
+            volumeSlider.addEventListener('input', () => {
+                currentVolume = parseFloat(volumeSlider.value);
+                if (gainNode) gainNode.gain.value = currentVolume;
+                updateVolumeIcon(currentVolume);
+            });
+
+            // Pitch/Speed control
+            pitchSlider.addEventListener('input', () => {
+                 const newRate = parseFloat(pitchSlider.value);
+                 if (newRate === currentPlaybackRate) return;
+
+                 const oldRate = currentPlaybackRate;
+                 currentPlaybackRate = newRate;
+
+                 if (sourceNode) {
+                     if (isPlaying) {
+                         const currentTime = getCurrentPlaybackTime();
+                         _startOffset = currentTime;
+                         _startTime = audioContext.currentTime;
+                         sourceNode.playbackRate.setValueAtTime(currentPlaybackRate, audioContext.currentTime);
+                     } else { // Update rate even if paused for next play
+                          sourceNode.playbackRate.value = currentPlaybackRate;
+                     }
+                 }
+                 updateProgress();
+            });
+
+            // Search Hint Popup Close Button
+            closeHintBtn.addEventListener('click', dismissSearchHint);
+        }
+
+    </script>
+</body>
+</html>
