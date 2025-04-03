@@ -24,6 +24,7 @@
             --player-shadow: 0 -8px 24px rgba(0, 0, 0, 0.7);
             --hint-bg: #282828;
             --hint-text: #e0e0e0;
+            --button-bg-hover: rgba(255, 255, 255, 0.1);
         }
 
         /* --- Base Styles --- */
@@ -53,10 +54,11 @@
             border-bottom: 1px solid var(--border-color);
             margin-bottom: 20px;
             flex-wrap: wrap;
+            gap: 15px; /* Gap between elements */
         }
 
         .header h1 {
-            margin: 0 0 10px 0;
+            margin: 0;
             font-size: 2rem;
             font-weight: 700;
             background: linear-gradient(90deg, #ff375f, #ff6b8b);
@@ -64,23 +66,57 @@
             background-clip: text;
             color: transparent;
             flex-shrink: 0;
+            order: 1; /* Title first */
         }
 
-        /* --- Search Bar --- */
+        /* --- Search Area (Wrapper for Button and Input) --- */
+        .search-area {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-grow: 1; /* Allow it to take space */
+            justify-content: flex-end; /* Push content to the right */
+            order: 2; /* Search area second */
+        }
+
+        /* Search Toggle Button */
+        .header-icon-button {
+             background: none;
+             border: none;
+             color: var(--text-primary);
+             font-size: 1.3rem; /* Slightly larger */
+             cursor: pointer;
+             padding: 8px; /* Slightly larger padding */
+             border-radius: 50%;
+             width: 40px;
+             height: 40px;
+             display: flex;
+             align-items: center;
+             justify-content: center;
+             transition: background-color 0.2s;
+             flex-shrink: 0; /* Don't shrink the button */
+             line-height: 1;
+        }
+         .header-icon-button:hover {
+             background-color: var(--button-bg-hover);
+         }
+
+        /* Search Input Container */
         .search-container {
-             position: relative;
-             width: 0;
-             opacity: 0;
-             transition: all 0.3s ease;
-             margin-left: auto;
-             overflow: hidden;
+            position: relative;
+            width: 0;
+            opacity: 0;
+            transition: width 0.3s ease, opacity 0.3s ease;
+            overflow: hidden;
+            visibility: hidden; /* Hide completely when inactive */
+            max-width: 300px; /* Max width on desktop */
         }
 
         .search-container.active {
-             width: min(300px, 100%);
-             opacity: 1;
-             margin-left: 20px;
-         }
+            width: 100%; /* Take available space up to max-width */
+            opacity: 1;
+            visibility: visible;
+        }
 
         #search-box {
             width: 100%;
@@ -94,7 +130,7 @@
             box-sizing: border-box;
         }
 
-        .search-icon {
+        .search-icon-input { /* Renamed to avoid conflict */
             position: absolute;
             left: 15px;
             top: 50%;
@@ -103,12 +139,24 @@
             pointer-events: none;
         }
 
-        /* --- Directory Navigation --- */
+
+        /* --- Directory & View Controls --- */
+         .controls-bar {
+             display: flex;
+             justify-content: space-between;
+             align-items: center;
+             flex-wrap: wrap;
+             gap: 10px;
+             margin-bottom: 15px;
+         }
+
         .directory-container {
-            margin-bottom: 20px;
+            /* margin-bottom: 20px; remove margin, handled by controls-bar */
             overflow-x: auto;
             white-space: nowrap;
             padding-bottom: 5px;
+            flex-grow: 1; /* Take available space */
+            min-width: 200px; /* Ensure it doesn't get too small */
         }
 
         .directory-path {
@@ -145,15 +193,44 @@
             margin: 0 2px;
         }
 
-        /* --- File Browser --- */
-        .file-browser {
+        /* View Toggle Buttons */
+        .view-toggle-buttons {
+             display: flex;
+             gap: 5px;
+             background-color: var(--bg-tertiary);
+             padding: 4px;
+             border-radius: 6px;
+             flex-shrink: 0; /* Prevent shrinking */
+        }
+        .view-toggle-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background-color 0.2s, color 0.2s;
+            line-height: 1;
+        }
+        .view-toggle-btn:hover {
+            color: var(--text-primary);
+        }
+        .view-toggle-btn.active {
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
+        }
+
+        /* --- File Browser (Grid View) --- */
+        .file-browser-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
             gap: 15px;
-            margin-top: 20px;
+            margin-top: 10px; /* Reduced top margin */
         }
 
-        .file-item {
+        .file-item-grid {
             background-color: var(--bg-secondary);
             border-radius: 8px;
             padding: 15px;
@@ -167,23 +244,23 @@
             text-align: center;
         }
 
-        .file-item:hover {
+        .file-item-grid:hover {
             background-color: var(--bg-tertiary);
             transform: translateY(-3px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
         }
 
-        .file-icon {
+        .file-icon-grid {
             font-size: 2.5rem;
             margin-bottom: 12px;
             color: var(--accent-color);
             line-height: 1;
         }
-        .file-icon.folder {
+        .file-icon-grid.folder {
              color: #77aaff;
          }
 
-        .file-name {
+        .file-name-grid {
             font-size: 0.9rem;
             font-weight: 500;
             white-space: normal;
@@ -199,11 +276,76 @@
              max-height: calc(1.3em * 3);
         }
 
-        .file-info {
+        .file-info-grid {
             font-size: 0.75rem;
             color: var(--text-secondary);
             margin-top: auto;
         }
+
+         /* --- File Browser (List View) --- */
+         .file-browser-list {
+             display: flex;
+             flex-direction: column;
+             gap: 2px; /* Small gap between list items */
+             margin-top: 10px;
+         }
+
+         .file-item-list {
+             display: flex;
+             align-items: center;
+             padding: 10px 12px;
+             background-color: var(--bg-secondary);
+             border-radius: 5px;
+             cursor: pointer;
+             transition: background-color 0.2s ease-in-out;
+             border: 1px solid transparent; /* For hover effect */
+             gap: 12px;
+         }
+         .file-item-list:hover {
+             background-color: var(--bg-tertiary);
+             border-color: var(--border-color);
+         }
+         /* Special style for non-clickable items in list view */
+         .file-item-list.non-interactive {
+             cursor: default;
+             opacity: 0.6;
+         }
+         .file-item-list.non-interactive:hover {
+              background-color: var(--bg-secondary); /* No hover bg change */
+              border-color: transparent;
+         }
+
+
+         .file-icon-list {
+             font-size: 1.2rem; /* Smaller icon for list */
+             color: var(--accent-color);
+             line-height: 1;
+             width: 20px; /* Fixed width */
+             text-align: center;
+             flex-shrink: 0;
+         }
+          .file-icon-list.folder {
+             color: #77aaff;
+         }
+
+         .file-name-list {
+             font-size: 0.95rem;
+             font-weight: 500;
+             white-space: nowrap;
+             overflow: hidden;
+             text-overflow: ellipsis;
+             flex-grow: 1; /* Take remaining space */
+             line-height: 1.3;
+         }
+
+         .file-info-list {
+             font-size: 0.8rem;
+             color: var(--text-secondary);
+             flex-shrink: 0; /* Don't shrink file size info */
+             min-width: 60px; /* Ensure some space for size */
+             text-align: right;
+         }
+
 
         /* --- Player Section --- */
         #player-section {
@@ -230,7 +372,7 @@
             gap: 15px;
             width: 25%;
             min-width: 150px;
-             overflow: hidden;
+            overflow: hidden;
         }
 
         .player-album-art {
@@ -281,7 +423,7 @@
         .player-buttons {
             display: flex;
             align-items: center;
-            gap: 20px;
+            gap: 15px; /* Adjusted gap */
         }
 
         .player-button {
@@ -306,7 +448,7 @@
              cursor: not-allowed;
         }
         .player-button:not(:disabled):hover {
-            background-color: rgba(255, 255, 255, 0.1);
+            background-color: var(--button-bg-hover);
         }
         /* Download button specific */
         #download-btn {
@@ -397,13 +539,12 @@
             flex-wrap: wrap; /* Allow wrapping */
         }
 
-        /* --- Pitch Shifter / Speed Controls --- */
+        /* Pitch Shifter / Speed Controls */
         .pitch-control, .volume-control {
             display: flex;
             align-items: center;
             gap: 8px;
-            /* flex-grow: 1; Allow shrinking/growing a bit */
-            min-width: 120px; /* Ensure they don't get too small */
+            min-width: 120px;
         }
 
         .control-label {
@@ -414,7 +555,7 @@
         }
 
         .control-slider {
-            width: 70px; /* Slightly reduced width */
+            width: 70px;
             height: 4px;
             appearance: none;
             background-color: var(--volume-track);
@@ -472,7 +613,6 @@
         }
 
         /* --- Loader --- */
-        /* General loader */
         .loader {
             display: inline-block;
             width: 20px;
@@ -484,19 +624,17 @@
             vertical-align: middle;
             margin-right: 10px;
         }
-        /* Loader for album art placeholder */
-         .player-album-art .loader {
+        .player-album-art .loader {
              width: 24px;
              height: 24px;
              margin-right: 0;
          }
-         /* Loader for button */
-          .btn-loader {
-              width: 16px; /* Smaller for buttons */
+         .btn-loader {
+              width: 16px;
               height: 16px;
               border: 2px solid rgba(255, 255, 255, 0.3);
               border-radius: 50%;
-              border-top-color: var(--text-primary); /* White loader on button */
+              border-top-color: var(--text-primary);
               animation: spin 0.8s ease-in-out infinite;
           }
 
@@ -544,11 +682,11 @@
 
 
         /* --- Responsive Design --- */
-        @media (max-width: 900px) {
-            .player-info, .player-extras {
-                width: auto;
-                flex-grow: 1;
-            }
+         @media (max-width: 900px) {
+             .player-info, .player-extras {
+                 width: auto;
+                 flex-grow: 1;
+             }
              .player-controls {
                  width: auto;
                  flex-grow: 2;
@@ -556,26 +694,49 @@
              .player-extras {
                  justify-content: center; /* Center items when wrapped */
              }
-        }
+             .search-area {
+                  /* On medium screens, allow search to take more width if needed */
+                  min-width: 150px;
+             }
+         }
 
         @media (max-width: 768px) {
             body {
                  padding-bottom: 180px; /* Increased space for potentially wrapped player */
              }
-            .header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 10px;
-            }
-            .search-container.active {
-                width: 100%;
-                margin-left: 0;
-                margin-top: 10px;
-            }
+             .header {
+                 flex-direction: row; /* Keep row */
+                 align-items: center; /* Center items vertically */
+                 gap: 10px;
+             }
+             .header h1 {
+                 order: 1; /* Title */
+                 flex-grow: 0; /* Don't let title grow too much */
+             }
+             .search-area {
+                 order: 2; /* Search */
+                 flex-grow: 1; /* Allow search area to take remaining space */
+                 justify-content: flex-end; /* Align button/input to the right */
+                 max-width: none; /* Remove max-width limit */
+             }
 
-            .file-browser {
+             .search-container.active {
+                 flex-grow: 1; /* Allow input to grow */
+                 max-width: none; /* Remove max width */
+             }
+
+            .file-browser-grid {
                 grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
             }
+            /* List view adjustments */
+            .file-name-list {
+                 font-size: 0.9rem;
+             }
+            .file-info-list {
+                 font-size: 0.75rem;
+                 min-width: 50px;
+             }
+
 
             #player-section {
                 flex-direction: column;
@@ -607,21 +768,65 @@
              .control-slider {
                  width: 80px; /* Adjust slider width */
              }
-             #download-btn {
-                 /* Allow button to take natural size or grow slightly */
-                 flex-grow: 0;
-                 flex-shrink: 0;
-             }
         }
          @media (max-width: 480px) {
              body {
                  padding-bottom: 190px; /* Even more space */
              }
-             .file-browser {
+              .header {
+                  gap: 5px; /* Reduce gap */
+              }
+             .header h1 {
+                 font-size: 1.6rem; /* Smaller title */
+             }
+             .header-icon-button {
+                 width: 36px;
+                 height: 36px;
+                 font-size: 1.1rem;
+                 padding: 6px;
+             }
+              .search-box {
+                  padding-left: 35px; /* Adjust padding for smaller icon */
+                  font-size: 0.85rem;
+              }
+              .search-icon-input {
+                  left: 12px; /* Adjust icon position */
+              }
+
+
+             .file-browser-grid {
                  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
              }
+             .file-item-grid {
+                  padding: 10px;
+             }
+             .file-icon-grid {
+                 font-size: 2rem;
+                 margin-bottom: 8px;
+             }
+             .file-name-grid {
+                 font-size: 0.8rem;
+             }
+             /* List view adjustments */
+            .file-item-list {
+                 padding: 8px 10px;
+                 gap: 8px;
+            }
+            .file-icon-list {
+                font-size: 1.1rem;
+                width: 18px;
+            }
+             .file-name-list {
+                 font-size: 0.85rem;
+             }
+            .file-info-list {
+                 font-size: 0.7rem;
+                 min-width: 45px;
+             }
+
+
               .player-buttons {
-                 gap: 15px;
+                 gap: 10px; /* Reduced gap */
              }
              .player-button {
                  width: 32px;
@@ -644,9 +849,6 @@
               .control-slider {
                    width: 120px; /* Increase slider width when stacked */
               }
-              #download-btn {
-                  margin-top: 5px; /* Add space above button if wrapped */
-              }
               #search-hint-popup {
                   bottom: 10px;
                   right: 10px;
@@ -660,20 +862,31 @@
     <div class="container">
         <div class="header">
             <h1>MP3 Archive</h1>
-            <div class="search-container" id="search-container">
-                <span class="search-icon">🔍</span>
-                <input type="search" id="search-box" placeholder="Search all files... (Press '/')">
+            <div class="search-area">
+                 <button id="search-toggle-btn" class="header-icon-button" title="Search Files (/)">🔍</button>
+                 <div class="search-container" id="search-container">
+                     <span class="search-icon-input">🔍</span>
+                     <input type="search" id="search-box" placeholder="Search all files...">
+                 </div>
             </div>
         </div>
 
-        <div class="directory-container">
-            <div class="directory-path" id="directory-path">
-                <!-- Directory crumbs will be added here -->
+        <div class="controls-bar">
+            <div class="directory-container">
+                <div class="directory-path" id="directory-path">
+                    <!-- Directory crumbs will be added here -->
+                </div>
+            </div>
+            <div class="view-toggle-buttons">
+                <button id="grid-view-btn" class="view-toggle-btn" title="Grid View">▦</button>
+                <button id="list-view-btn" class="view-toggle-btn" title="List View">☰</button>
             </div>
         </div>
 
-        <div id="file-browser" class="file-browser">
-            <!-- Files and directories will be displayed here -->
+
+        <div id="file-browser-container">
+             <!-- Files and directories will be displayed here -->
+             <!-- Container class (grid/list) will be set by JS -->
         </div>
 
         <div id="status-message" class="status-message visible">
@@ -692,9 +905,13 @@
 
         <div class="player-controls">
             <div class="player-buttons">
-                <button class="player-button" id="prev-btn" disabled>⏮</button>
-                <button id="play-pause-btn" class="player-button play-pause-btn" disabled>▶</button>
-                <button class="player-button" id="next-btn" disabled>⏭</button>
+                <button class="player-button" id="prev-btn" disabled title="Previous Track">⏮</button>
+                <button id="play-pause-btn" class="player-button play-pause-btn" disabled title="Play/Pause">▶</button>
+                <button class="player-button" id="next-btn" disabled title="Next Track">⏭</button>
+                 <button class="player-button" id="download-btn" title="Download current track" disabled>
+                    <span class="btn-icon">💾</span>
+                    <span class="loader btn-loader"></span>
+                </button>
             </div>
             <div class="progress-container">
                 <span id="current-time" class="progress-time">0:00</span>
@@ -716,10 +933,7 @@
                 <span class="volume-icon" id="volume-icon">🔊</span>
                 <input type="range" class="control-slider volume-slider" id="volume-slider" min="0" max="1" step="0.05" value="0.7">
             </div>
-            <button class="player-button" id="download-btn" title="Download current track" disabled>
-                <span class="btn-icon">💾</span>
-                <span class="loader btn-loader"></span>
-            </button>
+            <!-- Download button moved to player-buttons -->
         </div>
 
         <audio id="audio-element-for-context" style="display: none;"></audio>
@@ -727,7 +941,7 @@
 
      <!-- Search Hint Popup -->
      <div id="search-hint-popup">
-         <span>Tip: Press <kbd>/</kbd> to search files</span>
+         <span>Tip: Tap 🔍 or press <kbd>/</kbd> to search</span>
          <button id="close-hint-btn" title="Dismiss hint">✕</button>
      </div>
 
@@ -740,10 +954,11 @@
         const excludedExtensions = ['.xml', '.txt', '.torrent', '.jpg', '.png', '.gif', '.log', '.php', '.html', '.css', '.js', '.pdf', '.zip', '.rar', '.jpeg', '.md5', '.json', '_meta.sqlite', '_files.xml'];
 
         // --- DOM Elements ---
+        const searchToggleBtn = document.getElementById('search-toggle-btn');
         const searchContainer = document.getElementById('search-container');
         const searchBox = document.getElementById('search-box');
         const directoryPathEl = document.getElementById('directory-path');
-        const fileBrowserEl = document.getElementById('file-browser');
+        const fileBrowserContainerEl = document.getElementById('file-browser-container'); // Container for grid/list
         const statusMessageEl = document.getElementById('status-message');
         const playerAlbumArt = document.getElementById('player-album-art');
         const nowPlayingEl = document.getElementById('now-playing');
@@ -751,6 +966,7 @@
         const playPauseBtn = document.getElementById('play-pause-btn');
         const prevBtn = document.getElementById('prev-btn');
         const nextBtn = document.getElementById('next-btn');
+        const downloadBtn = document.getElementById('download-btn'); // Moved but reference is the same
         const progressWrapper = document.getElementById('progress-wrapper');
         const progressBar = document.getElementById('progress-bar');
         const currentTimeEl = document.getElementById('current-time');
@@ -758,9 +974,11 @@
         const volumeSlider = document.getElementById('volume-slider');
         const volumeIcon = document.getElementById('volume-icon');
         const pitchSlider = document.getElementById('pitch-slider');
-        const downloadBtn = document.getElementById('download-btn');
         const searchHintPopup = document.getElementById('search-hint-popup');
         const closeHintBtn = document.getElementById('close-hint-btn');
+        const gridViewBtn = document.getElementById('grid-view-btn');
+        const listViewBtn = document.getElementById('list-view-btn');
+
 
         // --- Audio State ---
         let audioContext;
@@ -778,10 +996,12 @@
         // --- Data State ---
         let currentDirectory = '';
         let allArchiveFiles = [];
-        let currentDirectoryItems = [];
-        let currentTracklist = [];
+        let currentDirectoryItems = []; // Items currently displayed (could be dir contents or search results)
+        let currentTracklist = []; // List of playable tracks in the current view
         let currentTrackIndex = -1;
         let currentPlayingFile = null; // { name, path, displayName, size }
+        let currentViewMode = localStorage.getItem('viewMode') || 'grid'; // 'grid' or 'list'
+
 
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', () => {
@@ -789,11 +1009,13 @@
             loadArchiveStructure();
             setupEventListeners();
             updatePlayerUI();
+            applyViewMode(); // Set initial view mode button state
             showSearchHintIfNeeded();
         });
 
         function setupAudioContext() {
-            const initAudio = () => {
+            // ... (same as before)
+             const initAudio = () => {
                 if (!audioContext) {
                     try {
                         audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -816,7 +1038,8 @@
 
         // --- Archive.org API & Data Handling ---
         async function loadArchiveStructure() {
-            showLoading("Loading archive structure...");
+            // ... (same as before - ensure displayName processing is robust)
+             showLoading("Loading archive structure...");
             try {
                 const response = await fetch(archiveApiUrl);
                 if (!response.ok) throw new Error(`Failed to load archive metadata (Status: ${response.status})`);
@@ -826,47 +1049,58 @@
                     throw new Error('Invalid archive structure: No files array found.');
                 }
 
-                const processedFiles = data.files.map(file => {
-                    const path = file.name;
-                    let displayName = path;
-                    if (path.includes('/')) {
-                         const parts = path.split('/').filter(p => p);
-                         displayName = parts[parts.length - 1] || '';
-                         if (path.endsWith('/')) {
-                              displayName += '/';
-                         }
-                    }
-                     if (path.endsWith('/') && displayName === '/') {
-                         const parts = path.split('/');
-                         displayName = parts[parts.length - 2] + '/';
-                     }
+                 // Enhanced processing for directories and display names
+                 const fileMap = new Map();
+                 data.files.forEach(file => fileMap.set(file.name, file));
 
-                    return {
-                        name: file.name, path: path,
-                        size: file.size ? parseInt(file.size) : 0,
-                        format: file.format || '',
-                        isDirectory: path.endsWith('/') || data.files.some(other => other.name !== path && other.name.startsWith(path + '/')),
-                        isAudio: path.toLowerCase().endsWith('.mp3'),
-                        displayName: displayName
-                    };
-                });
+                 const processedFiles = data.files.map(file => {
+                     const path = file.name;
+                     let displayName = path.split('/').filter(p => p).pop() || path; // Get last part
+                     let isDirectory = path.endsWith('/');
+
+                      // If it doesn't end with '/', check if other files start with this path + '/'
+                      if (!isDirectory) {
+                          for (const otherPath of fileMap.keys()) {
+                              if (otherPath !== path && otherPath.startsWith(path + '/')) {
+                                  isDirectory = true;
+                                  break;
+                              }
+                          }
+                      }
+                     if(isDirectory) displayName = displayName + '/';
+
+
+                     return {
+                         name: file.name,
+                         path: path,
+                         size: file.size ? parseInt(file.size) : 0,
+                         format: file.format || '',
+                         isDirectory: isDirectory,
+                         isAudio: !isDirectory && path.toLowerCase().endsWith('.mp3'), // Ensure directories are not audio
+                         displayName: displayName.replace(/\/$/, '') // Store display name without trailing slash for rendering
+                     };
+                 });
 
                 allArchiveFiles = processedFiles
                     .filter(file => {
+                        // Keep directories and valid audio files
                         if (file.isDirectory) return true;
                         if (file.isAudio) {
                             const extension = file.path.substring(file.path.lastIndexOf('.')).toLowerCase();
                             return !excludedExtensions.includes(extension);
                         }
+                        // Exclude other file types here
                         return false;
                     })
-                    .sort((a, b) => { // Sort folders first, then files alphabetically
+                     .sort((a, b) => { // Sort folders first, then files alphabetically by display name
                          if (a.isDirectory && !b.isDirectory) return -1;
                          if (!a.isDirectory && b.isDirectory) return 1;
+                         // Sort by display name (which doesn't have trailing slash now)
                          return a.displayName.localeCompare(b.displayName);
                      });
 
-                updateDirectoryView('');
+
+                updateDirectoryView(''); // Load root directory initially
                 hideLoading();
 
             } catch (error) {
@@ -878,41 +1112,29 @@
         // --- Directory Navigation & Display ---
         function updateDirectoryView(path) {
             currentDirectory = path;
-            searchBox.value = '';
+            searchBox.value = ''; // Clear search when navigating
+            if (searchContainer.classList.contains('active')) {
+                 toggleSearch(false); // Hide search bar if open
+            }
             updateBreadcrumbs();
 
             currentDirectoryItems = getItemsInDirectory(allArchiveFiles, path);
+            renderFileBrowser(currentDirectoryItems); // Render using current view mode
 
-            // Already sorted by loadArchiveStructure or getItemsInDirectory needs sort?
-            // Let's keep sort here for safety, folders first
-             const directories = currentDirectoryItems
-                 .filter(item => item.isDirectory)
-                 .sort((a, b) => a.displayName.localeCompare(b.displayName));
-             const files = currentDirectoryItems
-                 .filter(item => !item.isDirectory && item.isAudio)
-                 .sort((a, b) => a.displayName.localeCompare(b.displayName));
-
-             const itemsToRender = [...directories, ...files];
-            renderFileBrowser(itemsToRender);
-
-            currentTracklist = files;
+            // Update tracklist based on *audio files* in the current directory view
+            currentTracklist = currentDirectoryItems.filter(item => item.isAudio);
+            currentTrackIndex = currentPlayingFile ? currentTracklist.findIndex(track => track.path === currentPlayingFile.path) : -1;
             updatePrevNextButtons();
 
-            if (currentPlayingFile) {
-                currentTrackIndex = currentTracklist.findIndex(track => track.path === currentPlayingFile.path);
-            } else {
-                currentTrackIndex = -1;
-            }
-            updatePrevNextButtons();
-
-            if (itemsToRender.length === 0 && !searchBox.value) {
+            if (currentDirectoryItems.length === 0) {
                 displayStatus("This directory is empty.", false);
-            } else if (itemsToRender.length > 0) {
+            } else {
                 hideLoading();
             }
         }
 
          function getItemsInDirectory(allItems, dirPath) {
+            // ... (logic seems okay, ensure displayName is used for sorting if needed)
              const items = new Map();
              const dirPathLength = dirPath.length;
 
@@ -922,33 +1144,32 @@
                  const relativePath = item.path.substring(dirPathLength);
                  const slashIndex = relativePath.indexOf('/');
 
-                 if (slashIndex === -1) { // File or folder directly in this directory
-                     if (!item.isDirectory) { // File
-                          items.set(item.path, item);
-                     } else if (relativePath.endsWith('/')) { // Explicit directory entry
-                          items.set(item.path, item);
-                     }
-                 } else { // Item is deeper, find the immediate subdirectory it belongs to
-                     const firstPart = relativePath.substring(0, slashIndex + 1); // e.g., "subdir/"
-                     const subDirPath = dirPath + firstPart;
+                 if (slashIndex === -1 || (slashIndex === relativePath.length - 1 && item.isDirectory)) {
+                     // File or explicit directory entry directly in this directory
+                     items.set(item.path, item);
+                 } else {
+                     // Item is deeper, find the immediate subdirectory it belongs to
+                     const firstPart = relativePath.substring(0, slashIndex); // e.g., "subdir"
+                     const subDirPath = dirPath + firstPart + '/'; // Ensure trailing slash for dir path key
 
                      if (!items.has(subDirPath)) {
+                         // Find the actual directory entry if it exists
                          let dirEntry = allItems.find(d => d.path === subDirPath && d.isDirectory);
-                         if (!dirEntry) { // Synthesize if missing (less likely now)
-                             dirEntry = {
+                         if (dirEntry) {
+                              items.set(subDirPath, dirEntry);
+                         } else {
+                             // Optionally synthesize if needed, but better rely on processed data
+                             console.warn("Synthesizing directory entry for:", subDirPath);
+                              items.set(subDirPath, {
                                  name: subDirPath, path: subDirPath,
-                                 displayName: firstPart,
+                                 displayName: firstPart, // Display name without slash
                                  isDirectory: true, isAudio: false, size: 0, format: 'Directory'
-                             };
+                             });
                          }
-                         if (!dirEntry.displayName || dirEntry.displayName === dirEntry.path) {
-                             dirEntry.displayName = firstPart;
-                         }
-                         items.set(subDirPath, dirEntry);
                      }
                  }
              });
-             // Sort results: folders first, then files, alphabetically within groups
+             // Sort results: folders first, then files, alphabetically using displayName
              return Array.from(items.values()).sort((a, b) => {
                   if (a.isDirectory && !b.isDirectory) return -1;
                   if (!a.isDirectory && b.isDirectory) return 1;
@@ -958,7 +1179,8 @@
 
 
         function updateBreadcrumbs() {
-            directoryPathEl.innerHTML = '';
+            // ... (same as before)
+             directoryPathEl.innerHTML = '';
             const parts = currentDirectory.split('/').filter(part => part !== '');
             let pathAccumulator = '';
 
@@ -981,7 +1203,8 @@
 
 
         function createCrumb(text, path, isCurrent = false) {
-            const crumb = document.createElement('span');
+            // ... (same as before)
+             const crumb = document.createElement('span');
             crumb.className = 'directory-crumb';
             crumb.textContent = text;
             crumb.dataset.path = path;
@@ -994,93 +1217,195 @@
             return crumb;
         }
 
+        // --- View Mode Switching ---
+        function setViewMode(mode) {
+            if (mode !== 'grid' && mode !== 'list') mode = 'grid'; // Default to grid
+            currentViewMode = mode;
+            localStorage.setItem('viewMode', mode);
+            applyViewMode();
+            renderFileBrowser(currentDirectoryItems); // Re-render with the new mode
+        }
 
+        function applyViewMode() {
+            if (currentViewMode === 'list') {
+                listViewBtn.classList.add('active');
+                gridViewBtn.classList.remove('active');
+            } else {
+                gridViewBtn.classList.add('active');
+                listViewBtn.classList.remove('active');
+            }
+        }
+
+        // --- File Rendering (Combined Logic) ---
         function renderFileBrowser(items) {
-            fileBrowserEl.innerHTML = '';
+            fileBrowserContainerEl.innerHTML = ''; // Clear previous content
+            fileBrowserContainerEl.className = ''; // Clear old classes
 
+            if (currentViewMode === 'list') {
+                fileBrowserContainerEl.classList.add('file-browser-list');
+                renderFileBrowserList(items);
+            } else {
+                fileBrowserContainerEl.classList.add('file-browser-grid');
+                renderFileBrowserGrid(items);
+            }
+             // Update status if browser is empty after rendering
+             if (items.length === 0) {
+                 if(searchBox.value) {
+                     displayStatus(`No MP3 files found matching "${searchBox.value}".`, false);
+                 } else if (currentDirectory !== '') {
+                     displayStatus("This directory is empty.", false);
+                 } else {
+                      // Root might be initially empty before loading, handle this case
+                      // Status message is handled by loading logic initially
+                 }
+             } else {
+                 hideLoading(); // Hide loading/empty message if items are rendered
+             }
+        }
+
+        // --- Grid View Rendering ---
+        function renderFileBrowserGrid(items) {
             items.forEach(item => {
                 const itemEl = document.createElement('div');
-                itemEl.className = 'file-item';
+                itemEl.className = 'file-item-grid'; // Use grid specific class
                 itemEl.dataset.path = item.path;
 
                 const icon = document.createElement('div');
-                icon.className = 'file-icon';
-                let effectiveDisplayName = item.displayName;
+                icon.className = 'file-icon-grid'; // Use grid specific class
+
+                const nameEl = document.createElement('div');
+                nameEl.className = 'file-name-grid'; // Use grid specific class
+                nameEl.textContent = item.displayName || (item.isDirectory ? '[Folder]' : '[File]');
+                nameEl.title = item.displayName || item.path;
+
+                const infoEl = document.createElement('div');
+                infoEl.className = 'file-info-grid'; // Use grid specific class
 
                 if (item.isDirectory) {
                     icon.textContent = '📁';
                     icon.classList.add('folder');
                     itemEl.addEventListener('click', () => updateDirectoryView(item.path));
-                    effectiveDisplayName = effectiveDisplayName.replace(/\/$/, '');
+                    infoEl.textContent = 'Folder';
                 } else if (item.isAudio) {
                     icon.textContent = '🎵';
                     itemEl.addEventListener('click', () => playAudioFile(item));
+                    infoEl.textContent = formatFileSize(item.size);
                 } else {
+                    // Handle non-audio/non-dir files if they weren't filtered out
                     icon.textContent = '📄';
                     itemEl.style.cursor = 'default';
                     itemEl.style.opacity = '0.6';
+                    infoEl.textContent = formatFileSize(item.size); // Show size anyway
                 }
-
-                const nameEl = document.createElement('div');
-                nameEl.className = 'file-name';
-                nameEl.textContent = effectiveDisplayName || (item.isDirectory ? '[Folder]' : '[File]');
-                nameEl.title = effectiveDisplayName || item.path;
-
-                const infoEl = document.createElement('div');
-                infoEl.className = 'file-info';
-                infoEl.textContent = item.isDirectory ? 'Folder' : formatFileSize(item.size);
 
                 itemEl.appendChild(icon);
                 itemEl.appendChild(nameEl);
                 itemEl.appendChild(infoEl);
-                fileBrowserEl.appendChild(itemEl);
+                fileBrowserContainerEl.appendChild(itemEl);
             });
         }
 
+         // --- List View Rendering ---
+        function renderFileBrowserList(items) {
+             items.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'file-item-list'; // Use list specific class
+                itemEl.dataset.path = item.path;
+
+                const icon = document.createElement('div');
+                icon.className = 'file-icon-list'; // Use list specific class
+
+                const nameEl = document.createElement('div');
+                nameEl.className = 'file-name-list'; // Use list specific class
+                nameEl.textContent = item.displayName || (item.isDirectory ? '[Folder]' : '[File]');
+                nameEl.title = item.displayName || item.path; // Tooltip with full name/path might be useful
+
+                const infoEl = document.createElement('div');
+                infoEl.className = 'file-info-list'; // Use list specific class
+
+                if (item.isDirectory) {
+                    icon.textContent = '📁';
+                    icon.classList.add('folder');
+                    itemEl.addEventListener('click', () => updateDirectoryView(item.path));
+                    infoEl.textContent = 'Folder';
+                } else if (item.isAudio) {
+                    icon.textContent = '🎵';
+                    itemEl.addEventListener('click', () => playAudioFile(item));
+                    infoEl.textContent = formatFileSize(item.size);
+                } else {
+                     // Non-interactive item style
+                    icon.textContent = '📄';
+                    itemEl.classList.add('non-interactive');
+                    infoEl.textContent = formatFileSize(item.size);
+                }
+
+                itemEl.appendChild(icon);
+                itemEl.appendChild(nameEl);
+                itemEl.appendChild(infoEl);
+                fileBrowserContainerEl.appendChild(itemEl);
+            });
+        }
+
+
         function formatFileSize(bytes) {
+            // ... (same as before)
             if (bytes === undefined || bytes === null || bytes < 0) return '';
+            if (bytes === 0) return '0 B'; // Handle 0 bytes case
             if (bytes < 1024) return bytes + ' B';
             const i = Math.floor(Math.log(bytes) / Math.log(1024));
-            const units = ['KB', 'MB', 'GB', 'TB'];
-            const unitIndex = Math.max(0, Math.min(i - 1, units.length - 1));
-            return parseFloat((bytes / Math.pow(1024, i)).toFixed(1)) + ' ' + units[unitIndex];
+            const units = ['B', 'KB', 'MB', 'GB', 'TB']; // Start units from B
+            const unitIndex = Math.min(i, units.length - 1); // Use i directly
+            // Use toFixed(1) only for MB and above
+            const fixedDigits = unitIndex >= 2 ? 1 : 0;
+            return parseFloat((bytes / Math.pow(1024, unitIndex)).toFixed(fixedDigits)) + ' ' + units[unitIndex];
         }
 
 
         // --- Search Functionality ---
+         function toggleSearch(forceState) {
+             const activate = forceState !== undefined ? forceState : !searchContainer.classList.contains('active');
+             if (activate) {
+                 searchContainer.classList.add('active');
+                 searchBox.focus();
+             } else {
+                 searchContainer.classList.remove('active');
+                 searchBox.blur();
+             }
+         }
+
         function handleSearch() {
             const searchTerm = searchBox.value.toLowerCase().trim();
 
             if (!searchTerm) {
+                // If search is cleared, go back to the current directory view
                 updateDirectoryView(currentDirectory);
                 return;
             }
 
+            // Filter *all* files, not just current directory
             const results = allArchiveFiles.filter(file =>
                 !file.isDirectory && file.isAudio && file.path.toLowerCase().includes(searchTerm)
             ).sort((a, b) => a.displayName.localeCompare(b.displayName));
 
-            renderFileBrowser(results);
+            currentDirectoryItems = results; // Update the displayed items
+            renderFileBrowser(results); // Render search results using current view mode
 
+            // Update tracklist for playback based on search results
             currentTracklist = results;
             currentTrackIndex = currentPlayingFile ? currentTracklist.findIndex(track => track.path === currentPlayingFile.path) : -1;
             updatePrevNextButtons();
 
-            if (results.length === 0) {
-                displayStatus(`No MP3 files found matching "${searchTerm}".`, false);
-            } else {
-                hideLoading();
-            }
-
+            // Update breadcrumbs to show "Search Results"
             directoryPathEl.innerHTML = '';
-            const searchCrumb = createCrumb(`Search Results`, '', true);
+            const searchCrumb = createCrumb(`Search Results for "${searchTerm}"`, '', true);
             directoryPathEl.appendChild(searchCrumb);
         }
 
 
         // --- Audio Playback ---
         function playAudioFile(file) {
-            if (!file || !file.isAudio) return;
+            // ... (same as before - fetch, decode, startPlayback)
+             if (!file || !file.isAudio) return;
             if (!audioContext) { alert("Audio system not ready. Click page first."); return; }
 
             console.log("Playing:", file.path);
@@ -1088,6 +1413,7 @@
             stopPlayback();
 
             currentPlayingFile = file;
+            // Find index in the *currently displayed* tracklist (could be dir or search results)
             currentTrackIndex = currentTracklist.findIndex(track => track.path === file.path);
             updatePlayerUI(true); // Show loading
 
@@ -1114,7 +1440,8 @@
         }
 
         function startPlayback(offset = 0) {
-            if (!currentAudioBuffer || !audioContext || !gainNode) return;
+            // ... (same as before)
+             if (!currentAudioBuffer || !audioContext || !gainNode) return;
 
              if (sourceNode) { try { sourceNode.stop(); } catch (e) {} sourceNode.disconnect(); }
 
@@ -1139,9 +1466,10 @@
         }
 
          function stopPlayback(clearInfo = false) {
+            // ... (same as before)
              clearInterval(progressUpdateInterval);
              if (sourceNode) {
-                 sourceNode.onended = null;
+                 sourceNode.onended = null; // Prevent handleTrackEnd from firing on manual stop
                  try { sourceNode.stop(); } catch (e) {}
                  sourceNode.disconnect();
                  sourceNode = null;
@@ -1160,14 +1488,19 @@
                  updatePlayerUI();
                  updatePrevNextButtons();
              } else if (currentAudioBuffer) {
+                 // Don't clear info, just update UI to paused state
                  updatePlayerUI();
-                 updateProgress(); // Update progress to paused state
+                 updateProgress(); // Update progress to paused time
+             } else {
+                 // If no buffer (e.g., error occurred), ensure UI resets
+                 updatePlayerUI();
              }
          }
 
 
         function togglePlayback() {
-            if (!audioContext || !currentAudioBuffer) return;
+            // ... (same as before)
+             if (!audioContext || !currentAudioBuffer) return;
 
             if (isPlaying) {
                  // Pause logic moved mostly into stopPlayback
@@ -1183,48 +1516,71 @@
 
 
          function getCurrentPlaybackTime() {
-             if (!audioContext || !currentAudioBuffer) return 0;
+            // ... (same as before)
+              if (!audioContext || !currentAudioBuffer) return 0;
              if (isPlaying && sourceNode && _startTime > 0) {
                  const elapsedTime = audioContext.currentTime - _startTime;
                  return Math.max(0, Math.min(currentAudioBuffer.duration, _startOffset + (elapsedTime * currentPlaybackRate)));
              } else { // Paused or stopped
-                 return _pausedTime;
+                 // Return the stored paused time, ensuring it's valid
+                 return Math.max(0, Math.min(currentAudioBuffer.duration, _pausedTime));
              }
          }
 
 
         function handleTrackEnd() {
+            // ... (Ensure _pausedTime resets correctly for natural end)
             console.log("Track ended naturally.");
              clearInterval(progressUpdateInterval);
              isPlaying = false;
              sourceNode = null;
              _startOffset = 0;
-             _pausedTime = 0;
+             _pausedTime = currentAudioBuffer ? currentAudioBuffer.duration : 0; // Set to duration on natural end
              _startTime = 0;
-             updateProgress(); // Show 0:00
-             updatePlayerUI();
+             updateProgress(); // Show end time or 0:00 if duration was 0
+             updatePlayerUI(); // Reflect paused state at end
              playNext(); // Auto-play next
         }
 
          function playNext() {
-             if (currentTracklist.length === 0) return;
+            // ... (same as before, uses currentTracklist)
+              if (currentTracklist.length === 0) return;
              let nextIndex = currentTrackIndex + 1;
-             if (nextIndex >= currentTracklist.length) nextIndex = 0;
-             if (currentTracklist[nextIndex]) playAudioFile(currentTracklist[nextIndex]);
-             // updatePrevNextButtons called within playAudioFile -> updatePlayerUI
+             if (nextIndex >= currentTracklist.length) {
+                 // Optional: Stop at end of list or wrap around
+                 nextIndex = 0; // Wrap around
+                 // Or: stopPlayback(true); return; // Stop
+             }
+             if (currentTracklist[nextIndex]) {
+                 playAudioFile(currentTracklist[nextIndex]);
+             } else {
+                  // Handle case where next index might be invalid (though length check should prevent this)
+                 console.warn("Could not find next track at index", nextIndex);
+                 stopPlayback(true); // Stop if something is wrong
+             }
          }
 
          function playPrev() {
-             if (currentTracklist.length === 0) return;
+            // ... (same as before, uses currentTracklist)
+              if (currentTracklist.length === 0) return;
              let prevIndex = currentTrackIndex - 1;
-             if (prevIndex < 0) prevIndex = currentTracklist.length - 1;
-              if (currentTracklist[prevIndex]) playAudioFile(currentTracklist[prevIndex]);
-             // updatePrevNextButtons called within playAudioFile -> updatePlayerUI
+             if (prevIndex < 0) {
+                  // Optional: Stop at start or wrap around
+                 prevIndex = currentTracklist.length - 1; // Wrap around
+                 // Or: stopPlayback(true); return; // Stop
+             }
+              if (currentTracklist[prevIndex]) {
+                  playAudioFile(currentTracklist[prevIndex]);
+              } else {
+                  console.warn("Could not find previous track at index", prevIndex);
+                 stopPlayback(true);
+             }
          }
 
         // --- Direct Download Function ---
          async function triggerDownload() {
-             if (!currentPlayingFile || !currentPlayingFile.path) {
+            // ... (same as before - download logic is independent of button location)
+              if (!currentPlayingFile || !currentPlayingFile.path) {
                  console.warn("No file selected or path missing, cannot download.");
                  return;
              }
@@ -1233,7 +1589,7 @@
               }
 
              const fileUrl = `${archiveDownloadUrlBase}/${encodeURIComponent(currentPlayingFile.path)}`;
-             const filename = currentPlayingFile.displayName.replace(/\/$/, '') || currentPlayingFile.path.split('/').pop();
+             const filename = currentPlayingFile.displayName || currentPlayingFile.path.split('/').pop();
 
              console.log(`Initiating download for: ${filename}`);
              downloadBtn.classList.add('loading');
@@ -1246,7 +1602,6 @@
                  }
                  const blob = await response.blob();
 
-                 // Use Blob URL for download link
                  const blobUrl = URL.createObjectURL(blob);
                  const link = document.createElement('a');
                  link.href = blobUrl;
@@ -1256,37 +1611,36 @@
                  link.click();
                  document.body.removeChild(link);
 
-                 // Clean up the Blob URL after a short delay
                  setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-
                  console.log(`Download triggered for ${filename}`);
 
              } catch (error) {
                  console.error("Download failed:", error);
-                 alert(`Failed to download "${filename}". Error: ${error.message}`); // Inform user
+                 alert(`Failed to download "${filename}". Error: ${error.message}`);
              } finally {
-                 // Always re-enable the button and remove loading state
                   downloadBtn.classList.remove('loading');
-                  // Re-enable only if a track is still considered loaded
-                  downloadBtn.disabled = !currentAudioBuffer;
+                  // Re-enable only if a track is still considered loaded/valid
+                  downloadBtn.disabled = !currentAudioBuffer || !currentPlayingFile;
              }
          }
 
 
         // --- UI Updates ---
         function updatePlayerUI(isLoading = false) {
-             const hasActiveTrack = !!currentPlayingFile;
+            // ... (same logic, ensure downloadBtn state is correct)
+              const hasActiveTrack = !!currentPlayingFile;
              const hasBuffer = !!currentAudioBuffer;
              const canControl = hasActiveTrack && hasBuffer && !isLoading;
 
              playPauseBtn.disabled = !hasActiveTrack || (isLoading && !hasBuffer) || !audioContext;
              pitchSlider.disabled = !canControl;
-             downloadBtn.disabled = !canControl || downloadBtn.classList.contains('loading'); // Keep disabled if loading
-             updatePrevNextButtons(); // Handles prev/next state
+             // Download button enabled only when a track is loaded and not currently loading/downloading
+             downloadBtn.disabled = !canControl || downloadBtn.classList.contains('loading');
+             updatePrevNextButtons(); // Handles prev/next state based on currentTracklist
 
              if (isLoading) {
                  playerAlbumArt.innerHTML = '<span class="loader"></span>';
-                 nowPlayingEl.textContent = currentPlayingFile?.displayName.replace(/\/$/, '') || 'Loading...';
+                 nowPlayingEl.textContent = currentPlayingFile?.displayName || 'Loading...';
                  nowPlayingSubtitleEl.textContent = 'Loading audio...';
                  playPauseBtn.textContent = '⏳';
                  durationEl.textContent = '--:--';
@@ -1294,25 +1648,35 @@
                  progressBar.style.width = '0%';
              } else if (hasActiveTrack && hasBuffer) {
                  playerAlbumArt.textContent = '🎵';
-                 nowPlayingEl.textContent = currentPlayingFile.displayName.replace(/\/$/, '');
-                 const path = currentPlayingFile.path;
-                 const lastSlash = path.lastIndexOf('/');
-                 let dirDisplay = (lastSlash > 0) ? path.substring(0, lastSlash) : 'Root';
+                 nowPlayingEl.textContent = currentPlayingFile.displayName;
+                 // Extract directory path for subtitle
+                 const pathParts = currentPlayingFile.path.split('/').filter(p => p);
+                 pathParts.pop(); // Remove filename
+                 let dirDisplay = pathParts.length > 0 ? pathParts.join('/') : 'Root';
                  nowPlayingSubtitleEl.textContent = dirDisplay;
+
                  playPauseBtn.textContent = isPlaying ? '⏸' : '▶';
                  durationEl.textContent = formatTime(currentAudioBuffer.duration);
-             } else { // Default state
+                 // Ensure progress bar/time updates correctly if called while paused
+                 updateProgress();
+             } else { // Default state (no track loaded or error)
                  playerAlbumArt.textContent = '🎵';
                  nowPlayingEl.textContent = 'Not playing';
                  nowPlayingSubtitleEl.textContent = 'Select an MP3 file to play';
                  playPauseBtn.textContent = '▶';
+                 playPauseBtn.disabled = true; // Ensure disabled if no track
+                 pitchSlider.disabled = true;
+                 downloadBtn.disabled = true;
+                 prevBtn.disabled = true;
+                 nextBtn.disabled = true;
                  durationEl.textContent = '0:00';
                  currentTimeEl.textContent = '0:00';
                  progressBar.style.width = '0%';
              }
-         }
+        }
 
         function updateProgress() {
+            // ... (same as before)
             if (!audioContext || !currentAudioBuffer) {
                 currentTimeEl.textContent = '0:00';
                 progressBar.style.width = '0%';
@@ -1325,11 +1689,13 @@
         }
 
         function updateVolumeIcon(volume) {
+            // ... (same as before)
              volumeIcon.textContent = (volume <= 0) ? '🔇' : (volume < 0.5) ? '🔈' : '🔊';
         }
 
          function updatePrevNextButtons() {
-             const canNavigate = currentTracklist.length > 1 && !!currentAudioBuffer;
+            // ... (logic depends on currentTracklist length)
+             const canNavigate = currentTracklist && currentTracklist.length > 1 && currentTrackIndex !== -1;
              prevBtn.disabled = !canNavigate;
              nextBtn.disabled = !canNavigate;
          }
@@ -1337,6 +1703,7 @@
 
         // --- Helper Functions ---
         function formatTime(seconds) {
+            // ... (same as before)
             if (isNaN(seconds) || !isFinite(seconds) || seconds < 0) return '0:00';
             const totalSeconds = Math.floor(seconds);
             const mins = Math.floor(totalSeconds / 60);
@@ -1345,32 +1712,42 @@
         }
 
         function displayStatus(message, isError = false) {
-            statusMessageEl.innerHTML = message;
+            // ... (ensure it clears the correct file browser container)
+             statusMessageEl.innerHTML = message;
             statusMessageEl.style.color = isError ? 'var(--accent-color)' : 'var(--text-secondary)';
             statusMessageEl.classList.add('visible');
-            fileBrowserEl.innerHTML = '';
+            fileBrowserContainerEl.innerHTML = ''; // Clear the file browser content
+             fileBrowserContainerEl.className = ''; // Reset view class
         }
 
         function showLoading(message = "Loading...") {
+            // ... (ensure it clears the correct file browser container)
              statusMessageEl.innerHTML = `<span class="loader"></span>${message}`;
              statusMessageEl.style.color = 'var(--text-secondary)';
              statusMessageEl.classList.add('visible');
-             fileBrowserEl.innerHTML = '';
+             fileBrowserContainerEl.innerHTML = '';
+             fileBrowserContainerEl.className = '';
         }
 
         function hideLoading() {
+            // ... (same as before)
             statusMessageEl.classList.remove('visible');
         }
 
          // --- Search Hint Popup Logic ---
          function showSearchHintIfNeeded() {
-             if (localStorage.getItem('searchHintDismissed') !== 'true') {
+            // ... (same as before)
+              if (localStorage.getItem('searchHintDismissed') !== 'true') {
                  // Slight delay to ensure layout is stable
-                 setTimeout(() => searchHintPopup.classList.add('visible'), 500);
+                 setTimeout(() => {
+                     if (searchHintPopup) searchHintPopup.classList.add('visible');
+                 }, 500);
              }
          }
 
          function dismissSearchHint() {
+            // ... (same as before)
+              if (!searchHintPopup) return;
              searchHintPopup.style.opacity = '0'; // Fade out first
              setTimeout(() => searchHintPopup.classList.remove('visible'), 300); // Then hide
              try {
@@ -1383,18 +1760,19 @@
 
         // --- Event Listeners ---
         function setupEventListeners() {
-            // Search box toggle & activation
+             // Search box toggle & activation
+             searchToggleBtn.addEventListener('click', () => toggleSearch());
+
             document.addEventListener('keydown', (e) => {
                  const activeEl = document.activeElement;
                  const isInputFocused = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable);
 
                 if (e.key === '/' && !isInputFocused) {
                     e.preventDefault();
-                    searchContainer.classList.add('active');
-                    searchBox.focus();
+                    toggleSearch(true); // Force open and focus
                 } else if (e.key === 'Escape' && searchContainer.classList.contains('active')) {
-                     searchContainer.classList.remove('active');
-                     searchBox.blur();
+                     toggleSearch(false); // Close search
+                     // If search box had content, clear it and refresh view
                      if (searchBox.value) {
                          searchBox.value = '';
                          updateDirectoryView(currentDirectory);
@@ -1403,19 +1781,26 @@
             });
 
              searchBox.addEventListener('input', handleSearch);
-             searchBox.addEventListener('search', () => { if (!searchBox.value) handleSearch(); });
+             // Handle clearing search via the 'x' button in type="search"
+             searchBox.addEventListener('search', () => {
+                 // This event fires when the 'x' is clicked (value becomes empty)
+                 if (!searchBox.value) {
+                     handleSearch(); // This will trigger updateDirectoryView
+                 }
+             });
 
 
             // Player controls
             playPauseBtn.addEventListener('click', togglePlayback);
             prevBtn.addEventListener('click', playPrev);
             nextBtn.addEventListener('click', playNext);
-            downloadBtn.addEventListener('click', triggerDownload); // Direct download listener
+            downloadBtn.addEventListener('click', triggerDownload); // Listener remains the same
 
 
             // Progress bar seeking
             progressWrapper.addEventListener('click', (e) => {
-                if (!currentAudioBuffer || !audioContext) return;
+                // ... (same as before)
+                 if (!currentAudioBuffer || !audioContext) return;
 
                 const rect = progressWrapper.getBoundingClientRect();
                 const clickX = e.clientX - rect.left;
@@ -1424,45 +1809,55 @@
 
                 console.log(`Seeking to: ${formatTime(seekTime)} (${(progressRatio * 100).toFixed(1)}%)`);
 
+                 _pausedTime = seekTime; // Update paused time immediately
+
                 if (isPlaying) {
-                    const rate = currentPlaybackRate; // Preserve rate
-                    stopPlayback(false);
-                    currentPlaybackRate = rate;
-                    startPlayback(seekTime);
+                    // Need to stop and restart at the new position
+                    startPlayback(seekTime); // startPlayback handles stopping the old source
                 } else {
-                    _startOffset = seekTime; // Update position even if paused/stopped
-                    _pausedTime = seekTime;
-                    updateProgress(); // Show immediate visual feedback
-                }
+                     // If paused, just update the visual progress
+                     updateProgress();
+                 }
             });
 
             // Volume control
             volumeSlider.addEventListener('input', () => {
-                currentVolume = parseFloat(volumeSlider.value);
+                // ... (same as before)
+                 currentVolume = parseFloat(volumeSlider.value);
                 if (gainNode) gainNode.gain.value = currentVolume;
                 updateVolumeIcon(currentVolume);
             });
 
             // Pitch/Speed control
             pitchSlider.addEventListener('input', () => {
-                 const newRate = parseFloat(pitchSlider.value);
+                // ... (same as before)
+                  const newRate = parseFloat(pitchSlider.value);
                  if (newRate === currentPlaybackRate) return;
 
                  const oldRate = currentPlaybackRate;
                  currentPlaybackRate = newRate;
 
                  if (sourceNode) {
+                      // Get current time *before* changing rate
+                      const currentTime = getCurrentPlaybackTime();
+
+                     sourceNode.playbackRate.setValueAtTime(currentPlaybackRate, audioContext.currentTime);
+
                      if (isPlaying) {
-                         const currentTime = getCurrentPlaybackTime();
+                         // Adjust internal timing variables to maintain perceived position
                          _startOffset = currentTime;
                          _startTime = audioContext.currentTime;
-                         sourceNode.playbackRate.setValueAtTime(currentPlaybackRate, audioContext.currentTime);
-                     } else { // Update rate even if paused for next play
-                          sourceNode.playbackRate.value = currentPlaybackRate;
+                     } else {
+                         // If paused, update the stored pause time based on the rate change wasn't needed here
+                         // _pausedTime remains the same, rate change applies on next play
                      }
                  }
-                 updateProgress();
+                 // No need to call updateProgress manually here, interval will handle it
             });
+
+            // View Mode Toggles
+            gridViewBtn.addEventListener('click', () => setViewMode('grid'));
+            listViewBtn.addEventListener('click', () => setViewMode('list'));
 
             // Search Hint Popup Close Button
             closeHintBtn.addEventListener('click', dismissSearchHint);
