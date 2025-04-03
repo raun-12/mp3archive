@@ -817,6 +817,7 @@
 
                     jsmediatags.read(tagData, {
                         onSuccess: (tag) => {
+                            // Extract and clean metadata
                             const metadata = {
                                 title: tag.tags.title,
                                 artist: tag.tags.artist,
@@ -828,7 +829,7 @@
                                 disk: tag.tags.disk
                             };
 
-                            // Clean up metadata
+                            // Clean up metadata strings
                             if (metadata.artist && typeof metadata.artist === 'string') {
                                 metadata.artist = metadata.artist.split(';')[0].trim();
                             }
@@ -837,6 +838,16 @@
                             }
                             if (metadata.title && typeof metadata.title === 'string') {
                                 metadata.title = metadata.title.split(';')[0].trim();
+                            }
+
+                            // If no title in metadata, try to extract from filename
+                            if (!metadata.title && file.displayName) {
+                                metadata.title = file.displayName
+                                    .replace(/\.[^/.]+$/, '') // Remove extension
+                                    .split('/')
+                                    .pop() // Get last part of path
+                                    .replace(/_/g, ' ') // Replace underscores with spaces
+                                    .replace(/\b\w/g, l => l.toUpperCase()); // Capitalize first letter of each word
                             }
 
                             manageMetadataCache(file.path, metadata);
@@ -853,7 +864,87 @@
                 return {};
             }
         }
-        function displayMetadataInPlayer(metadata) { const title = metadata?.title || currentPlayingFile?.title || currentPlayingFile?.displayName || 'Unknown Title'; const artist = metadata?.artist || currentPlayingFile?.artist || UNKNOWN_ARTIST; const album = metadata?.album || currentPlayingFile?.album || UNKNOWN_ALBUM; nowPlayingEl.textContent = title; nowPlayingEl.title = title; let artistAlbumText = artist === UNKNOWN_ARTIST ? album : (album === UNKNOWN_ALBUM ? artist : `${artist} • ${album}`); if (artist === UNKNOWN_ARTIST && album === UNKNOWN_ALBUM) artistAlbumText = 'Unknown Artist / Album'; nowPlayingArtistAlbumEl.textContent = artistAlbumText; nowPlayingArtistAlbumEl.title = artistAlbumText; const pathParts = currentPlayingFile?.path?.split('/').filter(p => p); pathParts?.pop(); nowPlayingPathEl.textContent = pathParts?.length > 0 ? pathParts.join('/') : ''; nowPlayingPathEl.title = currentPlayingFile?.path || ''; albumArtLoader.classList.remove('visible'); albumArtIcon.classList.remove('hidden'); albumArtImg.classList.remove('loaded'); albumArtImg.src = ''; if (metadata?.picture) { try { const { data, format } = metadata.picture; let base64String = ""; for (let i = 0; i < data.length; i++) base64String += String.fromCharCode(data[i]); const imageUrl = `data:${format};base64,${window.btoa(base64String)}`; albumArtImg.onload = () => albumArtImg.classList.add('loaded'); albumArtImg.onerror = () => albumArtIcon.classList.remove('hidden'); albumArtImg.src = imageUrl; albumArtIcon.classList.add('hidden'); } catch (e) { console.error("Error displaying album art:", e); albumArtIcon.classList.remove('hidden'); } } }
+        function displayMetadataInPlayer(metadata) {
+            // Get the best available title, artist, and album
+            const title = metadata?.title || currentPlayingFile?.title || currentPlayingFile?.displayName || 'Unknown Title';
+            const artist = metadata?.artist || currentPlayingFile?.artist || UNKNOWN_ARTIST;
+            const album = metadata?.album || currentPlayingFile?.album || UNKNOWN_ALBUM;
+
+            // Clean up the display name by removing file extension and path
+            let cleanDisplayName = currentPlayingFile?.displayName || '';
+            if (cleanDisplayName) {
+                cleanDisplayName = cleanDisplayName.replace(/\.[^/.]+$/, ''); // Remove extension
+                cleanDisplayName = cleanDisplayName.split('/').pop(); // Get last part of path
+            }
+
+            // Update the player display
+            nowPlayingEl.textContent = title;
+            nowPlayingEl.title = title;
+
+            // Format artist and album text
+            let artistAlbumText = '';
+            if (artist === UNKNOWN_ARTIST && album === UNKNOWN_ALBUM) {
+                artistAlbumText = cleanDisplayName || 'Unknown Artist / Album';
+            } else if (artist === UNKNOWN_ARTIST) {
+                artistAlbumText = album;
+            } else if (album === UNKNOWN_ALBUM) {
+                artistAlbumText = artist;
+            } else {
+                artistAlbumText = `${artist} • ${album}`;
+            }
+            nowPlayingArtistAlbumEl.textContent = artistAlbumText;
+            nowPlayingArtistAlbumEl.title = artistAlbumText;
+
+            // Show the path without the filename
+            const pathParts = currentPlayingFile?.path?.split('/').filter(p => p);
+            if (pathParts) {
+                pathParts.pop(); // Remove the filename
+                nowPlayingPathEl.textContent = pathParts.length > 0 ? pathParts.join('/') : '';
+            } else {
+                nowPlayingPathEl.textContent = '';
+            }
+            nowPlayingPathEl.title = currentPlayingFile?.path || '';
+
+            // Handle album art
+            albumArtLoader.classList.remove('visible');
+            albumArtIcon.classList.remove('hidden');
+            albumArtImg.classList.remove('loaded');
+            albumArtImg.src = '';
+
+            if (metadata?.picture) {
+                try {
+                    const { data, format } = metadata.picture;
+                    let base64String = "";
+                    for (let i = 0; i < data.length; i++) {
+                        base64String += String.fromCharCode(data[i]);
+                    }
+                    const imageUrl = `data:${format};base64,${window.btoa(base64String)}`;
+                    
+                    // Add loading state
+                    albumArtLoader.classList.add('visible');
+                    albumArtIcon.classList.add('hidden');
+                    
+                    // Handle image loading
+                    albumArtImg.onload = () => {
+                        albumArtImg.classList.add('loaded');
+                        albumArtLoader.classList.remove('visible');
+                        albumArtIcon.classList.add('hidden');
+                    };
+                    
+                    // Handle image errors
+                    albumArtImg.onerror = () => {
+                        albumArtImg.classList.remove('loaded');
+                        albumArtLoader.classList.remove('visible');
+                        albumArtIcon.classList.remove('hidden');
+                    };
+                    
+                    albumArtImg.src = imageUrl;
+                } catch (e) {
+                    console.error("Error displaying album art:", e);
+                    albumArtIcon.classList.remove('hidden');
+                }
+            }
+        }
 
         // --- Caching Logic (Metadata) ---
         function manageMetadataCache(filePath, data) { if (metadataCache.size >= MAX_CACHE_SIZE) { const oldestPath = cacheOrder.shift(); if (oldestPath) { metadataCache.delete(oldestPath); } } metadataCache.set(filePath, data); cacheOrder.push(filePath); }
