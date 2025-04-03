@@ -594,73 +594,149 @@
         }
 
         function processRawFiles(rawFiles) {
-             console.log("processRawFiles start");
-             const fileMap = new Map();
-             rawFiles.forEach(file => fileMap.set(file.name, file));
+            console.log("processRawFiles start");
+            const fileMap = new Map();
+            rawFiles.forEach(file => fileMap.set(file.name, file));
 
-             const processed = rawFiles.map(file => {
-                 const path = file.name;
-                 let displayName = path.split('/').filter(p => p).pop() || path;
-                 let isDirectory = path.endsWith('/');
-                 if (!isDirectory && fileMap.size > 1) {
-                     for (const otherPath of fileMap.keys()) {
-                         if (otherPath !== path && otherPath.startsWith(path + '/')) {
-                             isDirectory = true;
-                             break;
-                         }
-                     }
-                 }
-                 let durationSeconds = undefined;
-                 if (file.length && !isNaN(parseFloat(file.length))) durationSeconds = parseFloat(file.length);
-                 let apiArtist = file.creator || file.artist || null;
-                 let apiAlbum = file.album || null;
-                 let apiTitle = file.title || null;
-                 if (apiArtist && typeof apiArtist === 'string') apiArtist = apiArtist.split(';')[0].trim();
-                 if (apiAlbum && typeof apiAlbum === 'string') apiAlbum = apiAlbum.split(';')[0].trim();
-                 return { name: file.name, path: path, size: file.size ? parseInt(file.size) : 0, format: file.format || '', isDirectory: isDirectory, isAudio: !isDirectory && path.toLowerCase().endsWith('.mp3'), displayName: displayName, duration: durationSeconds, artist: apiArtist, album: apiAlbum, title: apiTitle, metadata: null };
-             });
+            const processed = rawFiles.map(file => {
+                const path = file.name;
+                let displayName = path.split('/').filter(p => p).pop() || path;
+                let isDirectory = path.endsWith('/');
+                
+                // Check if this is a directory by looking for child files
+                if (!isDirectory && fileMap.size > 1) {
+                    for (const otherPath of fileMap.keys()) {
+                        if (otherPath !== path && otherPath.startsWith(path + '/')) {
+                            isDirectory = true;
+                            break;
+                        }
+                    }
+                }
 
-             const filtered = processed.filter(file => {
-                 if (file.isDirectory) return true;
-                 if (file.isAudio) {
-                     const extension = file.path.substring(file.path.lastIndexOf('.')).toLowerCase();
-                     return !excludedExtensions.includes(extension);
-                 }
-                 return false;
-             });
+                let durationSeconds = undefined;
+                if (file.length && !isNaN(parseFloat(file.length))) durationSeconds = parseFloat(file.length);
+                
+                // Extract metadata from file name if not available in API
+                let apiArtist = file.creator || file.artist || null;
+                let apiAlbum = file.album || null;
+                let apiTitle = file.title || null;
 
-             const sorted = filtered.sort((a, b) => {
-                 if (a.isDirectory && !b.isDirectory) return -1;
-                 if (!a.isDirectory && b.isDirectory) return 1;
-                 return (a.displayName || '').localeCompare(b.displayName || '');
-             });
-             console.log("processRawFiles end");
-             return sorted;
+                // Clean up metadata strings
+                if (apiArtist && typeof apiArtist === 'string') {
+                    apiArtist = apiArtist.split(';')[0].trim();
+                }
+                if (apiAlbum && typeof apiAlbum === 'string') {
+                    apiAlbum = apiAlbum.split(';')[0].trim();
+                }
+                if (apiTitle && typeof apiTitle === 'string') {
+                    apiTitle = apiTitle.split(';')[0].trim();
+                }
+
+                // Try to extract metadata from path if not available
+                if (!apiArtist || !apiAlbum) {
+                    const pathParts = path.split('/').filter(p => p);
+                    if (pathParts.length >= 2) {
+                        if (!apiArtist) apiArtist = pathParts[0];
+                        if (!apiAlbum && pathParts.length > 1) apiAlbum = pathParts[1];
+                    }
+                }
+
+                return {
+                    name: file.name,
+                    path: path,
+                    size: file.size ? parseInt(file.size) : 0,
+                    format: file.format || '',
+                    isDirectory: isDirectory,
+                    isAudio: !isDirectory && path.toLowerCase().endsWith('.mp3'),
+                    displayName: displayName,
+                    duration: durationSeconds,
+                    artist: apiArtist,
+                    album: apiAlbum,
+                    title: apiTitle,
+                    metadata: null
+                };
+            });
+
+            // Filter out non-MP3 files and excluded extensions
+            const filtered = processed.filter(file => {
+                if (file.isDirectory) return true;
+                if (file.isAudio) {
+                    const extension = file.path.substring(file.path.lastIndexOf('.')).toLowerCase();
+                    return !excludedExtensions.includes(extension);
+                }
+                return false;
+            });
+
+            // Sort directories first, then by name
+            const sorted = filtered.sort((a, b) => {
+                if (a.isDirectory && !b.isDirectory) return -1;
+                if (!a.isDirectory && b.isDirectory) return 1;
+                return (a.displayName || '').localeCompare(b.displayName || '');
+            });
+
+            console.log("processRawFiles end");
+            return sorted;
         }
 
         function buildArtistViewData(files) {
             console.log(`Building artist view data from ${files.length} received items...`);
             const tempArtistsData = {};
             let audioFileCount = 0;
+
             files.forEach(file => {
                 if (!file.isAudio) return;
                 audioFileCount++;
-                const artist = file.artist || UNKNOWN_ARTIST;
-                const album = file.album || UNKNOWN_ALBUM;
-                if (!tempArtistsData[artist]) tempArtistsData[artist] = { _albums: {} };
-                if (!tempArtistsData[artist]._albums[album]) tempArtistsData[artist]._albums[album] = [];
-                tempArtistsData[artist]._albums[album].push(file);
+
+                // Use metadata if available, otherwise fall back to file properties
+                const artist = file.metadata?.artist || file.artist || UNKNOWN_ARTIST;
+                const album = file.metadata?.album || file.album || UNKNOWN_ALBUM;
+                const title = file.metadata?.title || file.title || file.displayName;
+
+                if (!tempArtistsData[artist]) {
+                    tempArtistsData[artist] = { _albums: {} };
+                }
+                if (!tempArtistsData[artist]._albums[album]) {
+                    tempArtistsData[artist]._albums[album] = [];
+                }
+
+                // Update file with metadata if available
+                const fileWithMetadata = {
+                    ...file,
+                    artist: artist,
+                    album: album,
+                    title: title
+                };
+
+                tempArtistsData[artist]._albums[album].push(fileWithMetadata);
             });
+
+            // Sort tracks within each album
             Object.keys(tempArtistsData).forEach(artist => {
                 Object.keys(tempArtistsData[artist]._albums).forEach(album => {
-                    tempArtistsData[artist]._albums[album].sort((a, b) => (a.title || a.displayName).localeCompare(b.title || b.displayName));
+                    tempArtistsData[artist]._albums[album].sort((a, b) => {
+                        // Try to sort by track number if available
+                        if (a.metadata?.track && b.metadata?.track) {
+                            return parseInt(a.metadata.track) - parseInt(b.metadata.track);
+                        }
+                        // Fall back to title sorting
+                        return (a.title || a.displayName).localeCompare(b.title || b.displayName);
+                    });
                 });
             });
-            artistsData = Object.fromEntries(Object.entries(tempArtistsData).sort(([artistA], [artistB]) => artistA.localeCompare(artistB)));
+
+            // Sort artists alphabetically
+            artistsData = Object.fromEntries(
+                Object.entries(tempArtistsData).sort(([artistA], [artistB]) => 
+                    artistA.localeCompare(artistB)
+                )
+            );
+
             isArtistsDataBuilt = true;
             console.log(`Artist view data built. Artists: ${Object.keys(artistsData).length}, Audio Files processed: ${audioFileCount}`);
-            if (currentMainView === VIEW_MODE_ARTIST && !currentArtist && !currentAlbum && statusMessageEl.textContent.includes("Building artist data")) { // Check if we were waiting
-                 renderArtistList(); // Re-render now data is ready
+
+            if (currentMainView === VIEW_MODE_ARTIST && !currentArtist && !currentAlbum && 
+                statusMessageEl.textContent.includes("Building artist data")) {
+                renderArtistList();
             }
         }
 
@@ -716,7 +792,67 @@
 
         // --- Metadata Handling ---
         async function fetchTagsWithRange(url) { try { const response = await fetch(url, { headers: { 'Range': TAG_FETCH_RANGE } }); if (!response.ok || !(response.status === 200 || response.status === 206)) { throw new Error(`Tag fetch failed: ${response.status}`); } return await response.arrayBuffer(); } catch (error) { console.warn(`Could not fetch initial bytes for tags (${url}):`, error); return null; } }
-        async function getMetadataFromTags(file) { if (metadataCache.has(file.path)) { console.log("Metadata cache hit for:", file.path); return metadataCache.get(file.path); } console.log("Fetching tags for:", file.path); const fileUrl = `${archiveDownloadUrlBase}/${encodeURIComponent(file.path)}`; const tagData = await fetchTagsWithRange(fileUrl); if (!tagData) return {}; return new Promise((resolve) => { if (typeof jsmediatags === 'undefined') { console.warn("jsmediatags not loaded"); resolve({}); return; } jsmediatags.read(tagData, { onSuccess: (tag) => { const metadata = { title: tag.tags.title, artist: tag.tags.artist, album: tag.tags.album, picture: tag.tags.picture }; manageMetadataCache(file.path, metadata); resolve(metadata); }, onError: (error) => { console.warn('jsmediatags error:', file?.path, error.type); resolve({}); } }); }); }
+        async function getMetadataFromTags(file) {
+            if (metadataCache.has(file.path)) {
+                console.log("Metadata cache hit for:", file.path);
+                return metadataCache.get(file.path);
+            }
+
+            console.log("Fetching tags for:", file.path);
+            const fileUrl = `${archiveDownloadUrlBase}/${encodeURIComponent(file.path)}`;
+            
+            try {
+                const tagData = await fetchTagsWithRange(fileUrl);
+                if (!tagData) {
+                    console.warn("No tag data received for:", file.path);
+                    return {};
+                }
+
+                return new Promise((resolve) => {
+                    if (typeof jsmediatags === 'undefined') {
+                        console.warn("jsmediatags not loaded");
+                        resolve({});
+                        return;
+                    }
+
+                    jsmediatags.read(tagData, {
+                        onSuccess: (tag) => {
+                            const metadata = {
+                                title: tag.tags.title,
+                                artist: tag.tags.artist,
+                                album: tag.tags.album,
+                                picture: tag.tags.picture,
+                                year: tag.tags.year,
+                                genre: tag.tags.genre,
+                                track: tag.tags.track,
+                                disk: tag.tags.disk
+                            };
+
+                            // Clean up metadata
+                            if (metadata.artist && typeof metadata.artist === 'string') {
+                                metadata.artist = metadata.artist.split(';')[0].trim();
+                            }
+                            if (metadata.album && typeof metadata.album === 'string') {
+                                metadata.album = metadata.album.split(';')[0].trim();
+                            }
+                            if (metadata.title && typeof metadata.title === 'string') {
+                                metadata.title = metadata.title.split(';')[0].trim();
+                            }
+
+                            manageMetadataCache(file.path, metadata);
+                            resolve(metadata);
+                        },
+                        onError: (error) => {
+                            console.warn('jsmediatags error:', file?.path, error.type);
+                            resolve({});
+                        }
+                    });
+                });
+            } catch (error) {
+                console.error("Error fetching metadata:", error);
+                return {};
+            }
+        }
         function displayMetadataInPlayer(metadata) { const title = metadata?.title || currentPlayingFile?.title || currentPlayingFile?.displayName || 'Unknown Title'; const artist = metadata?.artist || currentPlayingFile?.artist || UNKNOWN_ARTIST; const album = metadata?.album || currentPlayingFile?.album || UNKNOWN_ALBUM; nowPlayingEl.textContent = title; nowPlayingEl.title = title; let artistAlbumText = artist === UNKNOWN_ARTIST ? album : (album === UNKNOWN_ALBUM ? artist : `${artist} • ${album}`); if (artist === UNKNOWN_ARTIST && album === UNKNOWN_ALBUM) artistAlbumText = 'Unknown Artist / Album'; nowPlayingArtistAlbumEl.textContent = artistAlbumText; nowPlayingArtistAlbumEl.title = artistAlbumText; const pathParts = currentPlayingFile?.path?.split('/').filter(p => p); pathParts?.pop(); nowPlayingPathEl.textContent = pathParts?.length > 0 ? pathParts.join('/') : ''; nowPlayingPathEl.title = currentPlayingFile?.path || ''; albumArtLoader.classList.remove('visible'); albumArtIcon.classList.remove('hidden'); albumArtImg.classList.remove('loaded'); albumArtImg.src = ''; if (metadata?.picture) { try { const { data, format } = metadata.picture; let base64String = ""; for (let i = 0; i < data.length; i++) base64String += String.fromCharCode(data[i]); const imageUrl = `data:${format};base64,${window.btoa(base64String)}`; albumArtImg.onload = () => albumArtImg.classList.add('loaded'); albumArtImg.onerror = () => albumArtIcon.classList.remove('hidden'); albumArtImg.src = imageUrl; albumArtIcon.classList.add('hidden'); } catch (e) { console.error("Error displaying album art:", e); albumArtIcon.classList.remove('hidden'); } } }
 
         // --- Caching Logic (Metadata) ---
