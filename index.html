@@ -461,9 +461,9 @@
         let currentArtist = null; // Artist view state
         let currentAlbum = null; // Artist view state
         let allArchiveFiles = []; // Raw file list from API
-        let artistsData = {}; // Structured: { artist: { album: [track, ...] } }
+        let artistsData = {}; // Structured: { artist: { _albums: { album: [track, ...] } } }
         let isArtistsDataBuilt = false;
-        let currentDirectoryItems = []; // Items currently displayed (folder contents, search results)
+        let currentDirectoryItems = []; // Items currently displayed (folder contents, search results, artist list, album list)
         let currentTracklist = []; // Playable tracks in the current context (folder, album, search)
         let currentTrackIndex = -1;
         let currentPlayingFile = null; // { name, path, displayName, size, format, duration?, metadata?, artist?, album?, title? }
@@ -543,11 +543,14 @@
                     throw new Error('Invalid archive structure: No files array found.');
                 }
 
-                // Process files: Extract basic info + BEST EFFORT metadata from API
-                allArchiveFiles = processRawFiles(data.files);
+                // Process ALL files from the API response
+                allArchiveFiles = processRawFiles(data.files); // Creates the master list
+                console.log(`Processed ${allArchiveFiles.length} total items from archive.`); // Log total items
+                const totalAudioFiles = allArchiveFiles.filter(f => f.isAudio).length;
+                console.log(`Found ${totalAudioFiles} audio files in total.`); // Log total audio files
 
-                // Build artist data structure (can be done async)
-                buildArtistViewData(allArchiveFiles); // Doesn't block rendering folder view
+                // Build artist data structure using the COMPLETE list
+                buildArtistViewData(allArchiveFiles); // Pass the full list
 
                 // Initial Render based on saved/default view
                 if (currentMainView === VIEW_MODE_ARTIST) {
@@ -573,8 +576,9 @@
                  const path = file.name;
                  let displayName = path.split('/').filter(p => p).pop() || path;
                  let isDirectory = path.endsWith('/');
-                 if (!isDirectory) {
+                 if (!isDirectory && fileMap.size > 1) { // Check only if not explicitly ending with /
                       for (const otherPath of fileMap.keys()) {
+                          // Check if any *other* file starts with this path + '/'
                           if (otherPath !== path && otherPath.startsWith(path + '/')) {
                               isDirectory = true;
                               break;
@@ -587,12 +591,10 @@
                      durationSeconds = parseFloat(file.length);
                  }
 
-                 // --- Best effort metadata extraction from Archive.org data ---
-                 let apiArtist = file.creator || file.artist || null; // Common fields
+                 let apiArtist = file.creator || file.artist || null;
                  let apiAlbum = file.album || null;
                  let apiTitle = file.title || null;
 
-                 // Sometimes artist/album might be semicolon-separated if multiple values exist
                  if (apiArtist && typeof apiArtist === 'string') apiArtist = apiArtist.split(';')[0].trim();
                  if (apiAlbum && typeof apiAlbum === 'string') apiAlbum = apiAlbum.split(';')[0].trim();
 
@@ -601,45 +603,43 @@
                      size: file.size ? parseInt(file.size) : 0,
                      format: file.format || '',
                      isDirectory: isDirectory,
-                     isAudio: !isDirectory && path.toLowerCase().endsWith('.mp3'),
+                     isAudio: !isDirectory && path.toLowerCase().endsWith('.mp3'), // Check isDirectory flag
                      displayName: displayName,
                      duration: durationSeconds,
-                     // Store API metadata attempt - might be refined later by jsmediatags
-                     artist: apiArtist,
-                     album: apiAlbum,
-                     title: apiTitle,
-                     metadata: null // Placeholder for jsmediatags result later
+                     artist: apiArtist, album: apiAlbum, title: apiTitle,
+                     metadata: null
                  };
              })
-             .filter(file => { // Filter out unwanted files early
+             .filter(file => { // Filter out unwanted file types early
                  if (file.isDirectory) return true;
                  if (file.isAudio) {
                      const extension = file.path.substring(file.path.lastIndexOf('.')).toLowerCase();
                      return !excludedExtensions.includes(extension);
                  }
-                 return false;
+                 return false; // Exclude non-audio, non-directory files
              })
              .sort((a, b) => { // Sort folders first, then by name
                  if (a.isDirectory && !b.isDirectory) return -1;
                  if (!a.isDirectory && b.isDirectory) return 1;
-                 return a.displayName.localeCompare(b.displayName);
+                 return (a.displayName || '').localeCompare(b.displayName || '');
               });
          }
 
-         function buildArtistViewData(files) {
-             console.log("Building artist view data...");
+         function buildArtistViewData(files) { // Receives the list (should be allArchiveFiles)
+             console.log(`Building artist view data from ${files.length} received items...`); // Log input size
              const tempArtistsData = {};
              let audioFileCount = 0;
 
              files.forEach(file => {
-                 if (!file.isAudio) return;
+                 // *** This is the crucial filter ***
+                 if (!file.isAudio) return; // Skips directories AND non-mp3 files
                  audioFileCount++;
 
                  const artist = file.artist || UNKNOWN_ARTIST;
                  const album = file.album || UNKNOWN_ALBUM;
 
                  if (!tempArtistsData[artist]) {
-                     tempArtistsData[artist] = { _albums: {} }; // Use _albums to avoid conflicts with potential album named '_albums'
+                     tempArtistsData[artist] = { _albums: {} };
                  }
                  if (!tempArtistsData[artist]._albums[album]) {
                      tempArtistsData[artist]._albums[album] = [];
@@ -650,14 +650,13 @@
               // Sort albums and tracks within the structure
               Object.keys(tempArtistsData).forEach(artist => {
                  Object.keys(tempArtistsData[artist]._albums).forEach(album => {
-                      // Sort tracks by title (if available from API), fallback to displayName
                       tempArtistsData[artist]._albums[album].sort((a, b) => {
                            const titleA = a.title || a.displayName;
                            const titleB = b.title || b.displayName;
                            return titleA.localeCompare(titleB);
                       });
                  });
-                 // Sort albums alphabetically (optional, could keep API order)
+                 // Sort albums alphabetically (optional)
                  // tempArtistsData[artist]._albums = Object.fromEntries(Object.entries(tempArtistsData[artist]._albums).sort());
               });
 
@@ -667,7 +666,8 @@
              );
 
              isArtistsDataBuilt = true;
-             console.log(`Artist view data built. Artists: ${Object.keys(artistsData).length}, Audio Files: ${audioFileCount}`);
+             // *** This count should match the totalAudioFiles logged earlier ***
+             console.log(`Artist view data built. Artists: ${Object.keys(artistsData).length}, Audio Files processed: ${audioFileCount}`);
              // If user is currently *waiting* in artist view, re-render
              if (currentMainView === VIEW_MODE_ARTIST && !currentArtist && !currentAlbum) {
                   renderArtistList();
@@ -676,24 +676,12 @@
 
 
         // --- Skeleton Loader & Status ---
-        function showInitialLoading() {
-             showSkeletonLoader(true);
-             statusMessageEl.innerHTML = `<span class="loader"></span>Loading archive...`;
-             statusMessageEl.classList.add('visible');
-             fileBrowserContainerEl.innerHTML = '';
-        }
-        function hideInitialLoading() {
-             hideSkeletonLoader();
-             // Only hide status message if it's the generic loading one
-             if (statusMessageEl.textContent.includes("Loading archive")) {
-                statusMessageEl.classList.remove('visible');
-                statusMessageEl.innerHTML = '';
-             }
-        }
-        function showSkeletonLoader(show) { skeletonLoaderEl.style.display = show ? (currentLayoutMode === 'grid' ? 'grid' : 'flex') : 'none'; skeletonLoaderEl.className = `file-browser-${currentLayoutMode} visible`; }
+        function showInitialLoading() { showSkeletonLoader(true); statusMessageEl.innerHTML = `<span class="loader"></span>Loading archive...`; statusMessageEl.classList.add('visible'); fileBrowserContainerEl.innerHTML = ''; }
+        function hideInitialLoading() { hideSkeletonLoader(); if (statusMessageEl.textContent.includes("Loading archive")) { statusMessageEl.classList.remove('visible'); statusMessageEl.innerHTML = ''; } }
+        function showSkeletonLoader(show) { skeletonLoaderEl.style.display = show ? (currentLayoutMode === 'grid' ? 'grid' : 'flex') : 'none'; /* Apply flex for list skeleton */ skeletonLoaderEl.className = `file-browser-${currentLayoutMode} visible`; }
         function hideSkeletonLoader() { skeletonLoaderEl.style.display = 'none'; }
-        function displayStatus(message, isError = false) { /* ... same ... */ statusMessageEl.innerHTML = message; statusMessageEl.style.color = isError ? 'var(--accent-color)' : 'var(--text-secondary)'; statusMessageEl.classList.add('visible'); fileBrowserContainerEl.innerHTML = ''; hideSkeletonLoader(); }
-        function hideLoading() { /* Hides non-error status messages */ if (!statusMessageEl.style.color.includes('accent')) { statusMessageEl.classList.remove('visible'); } }
+        function displayStatus(message, isError = false) { statusMessageEl.innerHTML = message; statusMessageEl.style.color = isError ? 'var(--accent-color)' : 'var(--text-secondary)'; statusMessageEl.classList.add('visible'); fileBrowserContainerEl.innerHTML = ''; hideSkeletonLoader(); }
+        function hideLoading() { if (!statusMessageEl.style.color.includes('accent')) { statusMessageEl.classList.remove('visible'); } }
 
 
         // --- View Mode Switching (Main: Folder/Artist) ---
@@ -701,45 +689,31 @@
              if (mode === currentMainView) return;
              currentMainView = mode;
              saveSetting('mainView', mode);
-             applyMainViewMode(); // Update buttons
+             applyMainViewMode(); // Update buttons, breadcrumbs
 
-             // Reset sub-navigation states
-             currentArtist = null;
-             currentAlbum = null;
-             // currentDirectory remains for folder view state persistence
+             currentArtist = null; currentAlbum = null; // Reset sub-nav
+             searchBox.value = ''; if(searchContainer.classList.contains('active')) toggleSearch(false); // Clear search
 
-              // Show loading while switching views potentially
-             showSkeletonLoader(true);
-             fileBrowserContainerEl.innerHTML = '';
+             showSkeletonLoader(true); fileBrowserContainerEl.innerHTML = '';
 
-             // Render the top level of the new view
-             requestAnimationFrame(() => { // Allow UI to update
+             requestAnimationFrame(() => {
                   if (mode === VIEW_MODE_ARTIST) {
-                      if (!isArtistsDataBuilt) {
-                           displayStatus("Building artist data..."); // Show status if not ready
-                           // buildArtistViewData might already be running, or call it again?
-                      } else {
-                           renderArtistList();
-                      }
-                  } else { // VIEW_MODE_FOLDER
-                      updateDirectoryView(currentDirectory); // Render last viewed directory
-                  }
+                      if (!isArtistsDataBuilt) { displayStatus("Building artist data..."); }
+                      else { renderArtistList(); }
+                  } else { updateDirectoryView(currentDirectory); } // Render last folder
                   // Skeletons hidden by rendering functions
              });
         }
 
          function applyMainViewMode() {
             updateMainViewToggleButtons();
-            updateBreadcrumbs(); // Breadcrumbs depend on main view
-            // Show/hide grid-list toggle based on context (hide for artist/album list)
-            const showGridListToggle = (currentMainView === VIEW_MODE_FOLDER) || (currentMainView === VIEW_MODE_ARTIST && currentArtist && currentAlbum); // Show only for track lists
+            updateBreadcrumbs();
+            // Show/hide grid-list toggle (only for folder content or track list)
+             const showGridListToggle = (currentMainView === VIEW_MODE_FOLDER) || (currentMainView === VIEW_MODE_ARTIST && currentArtist && currentAlbum);
              gridListToggleContainer.style.display = showGridListToggle ? 'flex' : 'none';
          }
 
-        function updateMainViewToggleButtons() {
-             folderViewBtn.classList.toggle('active', currentMainView === VIEW_MODE_FOLDER);
-             artistViewBtn.classList.toggle('active', currentMainView === VIEW_MODE_ARTIST);
-        }
+        function updateMainViewToggleButtons() { folderViewBtn.classList.toggle('active', currentMainView === VIEW_MODE_FOLDER); artistViewBtn.classList.toggle('active', currentMainView === VIEW_MODE_ARTIST); }
 
         // --- View Mode Switching (Layout: Grid/List) ---
         function setLayoutMode(mode) {
@@ -747,72 +721,49 @@
             currentLayoutMode = mode;
             saveSetting('layoutMode', mode);
             applyLayoutMode();
-            // Re-render the current content with the new layout
-            rerenderCurrentView();
+            rerenderCurrentView(); // Re-render with new layout
         }
-        function applyLayoutMode() {
-            gridViewBtn.classList.toggle('active', currentLayoutMode === 'grid');
-            listViewBtn.classList.toggle('active', currentLayoutMode === 'list');
-            // Apply class to skeleton loader as well for correct styling
-            skeletonLoaderEl.className = `file-browser-${currentLayoutMode} visible`;
-        }
+        function applyLayoutMode() { gridViewBtn.classList.toggle('active', currentLayoutMode === 'grid'); listViewBtn.classList.toggle('active', currentLayoutMode === 'list'); skeletonLoaderEl.className = `file-browser-${currentLayoutMode} visible`; } // Apply to skeleton too
 
         // --- Re-rendering Logic ---
         function rerenderCurrentView() {
-             // Show skeletons during re-render
-             showSkeletonLoader(true);
-             fileBrowserContainerEl.innerHTML = '';
-
+             showSkeletonLoader(true); fileBrowserContainerEl.innerHTML = '';
              requestAnimationFrame(() => {
-                 if (searchBox.value) {
-                     handleSearch(); // Re-run search if active
-                 } else if (currentMainView === VIEW_MODE_ARTIST) {
-                     if (currentArtist && currentAlbum) {
-                         renderTrackListForArtist(currentArtist, currentAlbum);
-                     } else if (currentArtist) {
-                         renderAlbumList(currentArtist);
-                     } else {
-                         renderArtistList();
-                     }
-                 } else { // Folder view
-                     // Get items for current dir again and render
-                     const items = getItemsInDirectory(allArchiveFiles, currentDirectory);
-                     renderFileBrowser(items);
-                 }
-                 // Skeletons hidden by respective render functions
+                 if (searchBox.value) { handleSearch(); }
+                 else if (currentMainView === VIEW_MODE_ARTIST) {
+                     if (currentArtist && currentAlbum) renderTrackListForArtist(currentArtist, currentAlbum);
+                     else if (currentArtist) renderAlbumList(currentArtist);
+                     else renderArtistList();
+                 } else { updateDirectoryView(currentDirectory); } // Re-render folder view
+                 // Skeletons hidden by render functions
              });
         }
 
 
         // --- Rendering Functions (Folder View) ---
         function updateDirectoryView(path) {
-             // Should only be called when main view is 'folder'
-             if (currentMainView !== VIEW_MODE_FOLDER) return;
-
-             showSkeletonLoader(true);
-             fileBrowserContainerEl.innerHTML = '';
+             if (currentMainView !== VIEW_MODE_FOLDER) { console.warn("updateDirectoryView called while not in folder view"); return; } // Safety check
+             showSkeletonLoader(true); fileBrowserContainerEl.innerHTML = '';
              currentDirectory = path;
-             searchBox.value = ''; // Clear search when navigating folders
-             if (searchContainer.classList.contains('active')) toggleSearch(false);
-
-             currentArtist = null; // Reset artist view state
-             currentAlbum = null;
+             currentArtist = null; currentAlbum = null; // Reset other view states
+             if (searchBox.value) { searchBox.value = ''; toggleSearch(false);} // Clear search
 
              updateBreadcrumbs();
              const items = getItemsInDirectory(allArchiveFiles, path);
-             currentDirectoryItems = items; // Update displayed items
-             currentTracklist = items.filter(item => item.isAudio); // Update playable tracklist for this folder
+             currentDirectoryItems = items;
+             currentTracklist = items.filter(item => item.isAudio);
              currentTrackIndex = currentPlayingFile ? currentTracklist.findIndex(track => track.path === currentPlayingFile.path) : -1;
 
              requestAnimationFrame(() => {
-                 renderFileBrowser(items);
+                 renderFileBrowser(items); // Use the generic renderer for files/folders
                  hideSkeletonLoader();
-                 updatePrevNextButtons(); // Update based on new tracklist
+                 updatePrevNextButtons();
                   if (items.length === 0) displayStatus("This directory is empty.", false);
                   else hideLoading();
              });
         }
 
+        // *** CORRECTED getItemsInDirectory ***
         function getItemsInDirectory(allItems, dirPath) {
             const items = new Map(); // Use a Map to automatically handle duplicates (e.g., explicit dir + implicit)
             const dirPathLength = dirPath.length;
@@ -829,12 +780,8 @@
                     // It cannot be an implicit directory at this point.
                     if (!item.isDirectory) { // Only add files here
                          items.set(item.path, item);
-                    } else if (item.path.endsWith('/')) {
-                        // Explicit directory entry ending with / directly inside current dirPath
-                        // e.g. current is 'root/' showing 'subfolder/'
-                        // This case might be less common with the logic below but covers explicit listings
-                         items.set(item.path, item);
                     }
+                    // We handle explicit directory entries (like 'folder/') via the 'else' block logic now
                 } else {
                     // Item is deeper (e.g., "folder/file.mp3" or "folder/subfolder/")
                     const firstPart = relativePath.substring(0, slashIndex); // The name of the immediate subdirectory ("folder")
@@ -843,16 +790,17 @@
                     // Check if we've already added this subdirectory
                     if (!items.has(subDirPath)) {
                         // Try to find an *explicit* entry for this subdirectory in the master list
+                        // Relies on processRawFiles having marked implicit dirs correctly (isDirectory flag)
                         let dirEntry = allItems.find(d => d.path === subDirPath && d.isDirectory);
 
                         if (dirEntry) {
                             // Found an explicit entry, use it
                             items.set(subDirPath, dirEntry);
                         } else {
-                            // *** Synthesis Step ***
+                            // *** Synthesis Step (Fallback) ***
                             // No explicit entry found, but we know items exist within it.
-                            // Create a synthetic directory entry.
-                             // Ensure display name uses the calculated part
+                            // This might happen if processRawFiles missed an implicit dir.
+                            // console.log(`Synthesizing directory entry for missing: ${subDirPath}`); // Keep for debug
                             items.set(subDirPath, {
                                 name: subDirPath, // Internal name/key
                                 path: subDirPath, // Path for navigation
@@ -864,12 +812,10 @@
                             });
                         }
                     }
-                     // If item itself is an explicit directory deeper down (e.g. folder/subfolder/)
-                     // and it's directly inside the current dirPath (slashIndex === relativePath.length - 1)
-                     // it should be added. Check if the first condition missed it.
-                    else if (item.isDirectory && item.path.endsWith('/') && slashIndex === relativePath.length - 1) {
-                         if (!items.has(item.path)) { // Add if not already present
-                             items.set(item.path, item);
+                     // Handle explicit directories listed like "folder/subfolder/" that are direct children
+                     if (item.isDirectory && item.path.endsWith('/') && slashIndex === (relativePath.length - 1)) {
+                         if (!items.has(item.path)) { // Add if not already added by other logic
+                            items.set(item.path, item);
                          }
                      }
                 }
@@ -879,448 +825,49 @@
             return Array.from(items.values()).sort((a, b) => {
                 if (a.isDirectory && !b.isDirectory) return -1;
                 if (!a.isDirectory && b.isDirectory) return 1;
-                 // Ensure displayName comparison is robust
                  const nameA = a.displayName || '';
                  const nameB = b.displayName || '';
                 return nameA.localeCompare(nameB);
             });
         }
+
+
         // --- Rendering Functions (Artist View) ---
-         function renderArtistList() {
-             if (currentMainView !== VIEW_MODE_ARTIST) return;
-             showSkeletonLoader(true);
-             fileBrowserContainerEl.innerHTML = '';
-             currentArtist = null; // Reset sub-levels
-             currentAlbum = null;
-             updateBreadcrumbs(); // Update for artist view top level
-
-             if (!isArtistsDataBuilt) {
-                 displayStatus("Building artist data...");
-                 // Skeletons will hide when build completes and calls this again
-                 return;
-             }
-             if (Object.keys(artistsData).length === 0) {
-                 displayStatus("No artist information found in metadata.", false);
-                 hideSkeletonLoader();
-                 return;
-             }
-
-             const itemsToRender = Object.keys(artistsData).map(artistName => ({
-                 name: artistName,
-                 isArtist: true, // Custom flag
-                 itemCount: Object.keys(artistsData[artistName]._albums).length // Number of albums
-             }));
-
-             currentDirectoryItems = itemsToRender; // Store for potential re-render
-             currentTracklist = []; // No direct tracklist at artist level
-             currentTrackIndex = -1;
-             updatePrevNextButtons(); // Disable prev/next
-
-             requestAnimationFrame(() => {
-                 renderArtistAlbumBrowser(itemsToRender); // Use specific renderer
-                 hideSkeletonLoader();
-                 hideLoading();
-             });
-         }
-
-         function renderAlbumList(artistName) {
-             if (currentMainView !== VIEW_MODE_ARTIST || !artistsData[artistName]) return;
-             showSkeletonLoader(true);
-             fileBrowserContainerEl.innerHTML = '';
-             currentArtist = artistName; // Set current artist
-             currentAlbum = null;
-             updateBreadcrumbs(); // Update for artist selected level
-
-             const albums = artistsData[artistName]._albums;
-             if (Object.keys(albums).length === 0) {
-                 displayStatus(`No albums found for ${artistName}.`, false);
-                 hideSkeletonLoader();
-                 return;
-             }
-
-             const itemsToRender = Object.keys(albums).map(albumName => ({
-                 name: albumName,
-                 isAlbum: true, // Custom flag
-                 itemCount: albums[albumName].length // Number of tracks
-             }));
-
-             currentDirectoryItems = itemsToRender; // Store for re-render
-             currentTracklist = []; // No direct tracklist at album level
-             currentTrackIndex = -1;
-             updatePrevNextButtons(); // Disable prev/next
-
-             requestAnimationFrame(() => {
-                 renderArtistAlbumBrowser(itemsToRender); // Use same renderer
-                 hideSkeletonLoader();
-                 hideLoading();
-             });
-         }
-
-         function renderTrackListForArtist(artistName, albumName) {
-             if (currentMainView !== VIEW_MODE_ARTIST || !artistsData[artistName]?._albums[albumName]) return;
-             showSkeletonLoader(true);
-             fileBrowserContainerEl.innerHTML = '';
-             currentArtist = artistName; // Ensure state is set
-             currentAlbum = albumName;
-             updateBreadcrumbs(); // Update for album selected level
-
-             const tracks = artistsData[artistName]._albums[albumName];
-             if (tracks.length === 0) {
-                 displayStatus(`No tracks found for ${albumName}.`, false);
-                 hideSkeletonLoader();
-                 return;
-             }
-
-             currentDirectoryItems = tracks; // Store for re-render
-             currentTracklist = tracks; // THIS is the playable tracklist now
-             currentTrackIndex = currentPlayingFile ? currentTracklist.findIndex(track => track.path === currentPlayingFile.path) : -1;
-             updatePrevNextButtons(); // Enable/disable based on album tracks
-
-             requestAnimationFrame(() => {
-                 renderFileBrowser(tracks); // Use the standard file browser render for tracks
-                 hideSkeletonLoader();
-                 hideLoading();
-             });
-         }
+        function renderArtistList() { /* ... same ... */ if (currentMainView !== VIEW_MODE_ARTIST) return; showSkeletonLoader(true); fileBrowserContainerEl.innerHTML = ''; currentArtist = null; currentAlbum = null; updateBreadcrumbs(); if (!isArtistsDataBuilt) { displayStatus("Building artist data..."); return; } if (Object.keys(artistsData).length === 0) { displayStatus("No artist information found.", false); hideSkeletonLoader(); return; } const itemsToRender = Object.keys(artistsData).map(artistName => ({ name: artistName, isArtist: true, itemCount: Object.keys(artistsData[artistName]._albums).length })); currentDirectoryItems = itemsToRender; currentTracklist = []; currentTrackIndex = -1; updatePrevNextButtons(); requestAnimationFrame(() => { renderArtistAlbumBrowser(itemsToRender); hideSkeletonLoader(); hideLoading(); }); }
+        function renderAlbumList(artistName) { /* ... same ... */ if (currentMainView !== VIEW_MODE_ARTIST || !artistsData[artistName]) return; showSkeletonLoader(true); fileBrowserContainerEl.innerHTML = ''; currentArtist = artistName; currentAlbum = null; updateBreadcrumbs(); const albums = artistsData[artistName]._albums; if (Object.keys(albums).length === 0) { displayStatus(`No albums found for ${artistName}.`, false); hideSkeletonLoader(); return; } const itemsToRender = Object.keys(albums).map(albumName => ({ name: albumName, isAlbum: true, itemCount: albums[albumName].length })); currentDirectoryItems = itemsToRender; currentTracklist = []; currentTrackIndex = -1; updatePrevNextButtons(); requestAnimationFrame(() => { renderArtistAlbumBrowser(itemsToRender); hideSkeletonLoader(); hideLoading(); }); }
+        function renderTrackListForArtist(artistName, albumName) { /* ... same ... */ if (currentMainView !== VIEW_MODE_ARTIST || !artistsData[artistName]?._albums[albumName]) return; showSkeletonLoader(true); fileBrowserContainerEl.innerHTML = ''; currentArtist = artistName; currentAlbum = albumName; updateBreadcrumbs(); const tracks = artistsData[artistName]._albums[albumName]; if (tracks.length === 0) { displayStatus(`No tracks found for ${albumName}.`, false); hideSkeletonLoader(); return; } currentDirectoryItems = tracks; currentTracklist = tracks; currentTrackIndex = currentPlayingFile ? currentTracklist.findIndex(track => track.path === currentPlayingFile.path) : -1; updatePrevNextButtons(); requestAnimationFrame(() => { renderFileBrowser(tracks); hideSkeletonLoader(); hideLoading(); }); }
 
 
-        // --- Combined Rendering for Files, Artists, Albums ---
-        function renderFileBrowser(items) {
-            // Renders Folders & Files (in Folder View or Artist Track List)
-             // Assumes items are file/directory objects from allArchiveFiles
-             fileBrowserContainerEl.innerHTML = '';
-             fileBrowserContainerEl.className = ''; // Clear old classes
-
-             if (currentLayoutMode === 'list') {
-                 fileBrowserContainerEl.classList.add('file-browser-list');
-                 renderFileBrowserList(items);
-             } else {
-                 fileBrowserContainerEl.classList.add('file-browser-grid');
-                 renderFileBrowserGrid(items);
-             }
-             // Status message handled by caller functions
-        }
-
-        function renderArtistAlbumBrowser(items) {
-             // Renders Artists or Albums
-             // Assumes items are { name: string, isArtist?: boolean, isAlbum?: boolean, itemCount: number }
-             fileBrowserContainerEl.innerHTML = '';
-             fileBrowserContainerEl.className = ''; // Clear old classes
-
-             if (currentLayoutMode === 'list') {
-                 fileBrowserContainerEl.classList.add('file-browser-list');
-                 renderArtistAlbumList(items);
-             } else {
-                 fileBrowserContainerEl.classList.add('file-browser-grid');
-                 renderArtistAlbumGrid(items);
-             }
-             // Status message handled by caller functions
-        }
+        // --- Combined Rendering Dispatchers ---
+        function renderFileBrowser(items) { /* Renders Folders & Files */ fileBrowserContainerEl.innerHTML = ''; fileBrowserContainerEl.className = ''; if (currentLayoutMode === 'list') { fileBrowserContainerEl.classList.add('file-browser-list'); renderFileBrowserList(items); } else { fileBrowserContainerEl.classList.add('file-browser-grid'); renderFileBrowserGrid(items); } }
+        function renderArtistAlbumBrowser(items) { /* Renders Artists or Albums */ fileBrowserContainerEl.innerHTML = ''; fileBrowserContainerEl.className = ''; if (currentLayoutMode === 'list') { fileBrowserContainerEl.classList.add('file-browser-list'); renderArtistAlbumList(items); } else { fileBrowserContainerEl.classList.add('file-browser-grid'); renderArtistAlbumGrid(items); } }
 
 
         // --- Grid View Rendering ---
-        function renderFileBrowserGrid(items) { /* Renders files/folders */
-             items.forEach(item => {
-                const itemEl = document.createElement('div');
-                itemEl.className = 'file-item-grid';
-                itemEl.dataset.path = item.path; // Use path for files/folders
-
-                const icon = document.createElement('div');
-                icon.className = 'file-icon-grid';
-                const nameEl = document.createElement('div');
-                nameEl.className = 'file-name-grid';
-                nameEl.textContent = item.displayName || '[No Name]';
-                nameEl.title = item.displayName || item.path;
-                const infoEl = document.createElement('div');
-                infoEl.className = 'file-info-grid';
-
-                if (item.isDirectory) {
-                    icon.textContent = '📁'; icon.classList.add('folder');
-                    itemEl.addEventListener('click', () => updateDirectoryView(item.path));
-                    infoEl.textContent = 'Folder';
-                } else if (item.isAudio) {
-                    icon.textContent = '🎵';
-                    itemEl.addEventListener('click', () => playAudioFile(item, currentTracklist)); // Pass context
-                    infoEl.textContent = formatFileSize(item.size);
-                } else { /* Handle other types if needed */ }
-
-                itemEl.appendChild(icon); itemEl.appendChild(nameEl); itemEl.appendChild(infoEl);
-                fileBrowserContainerEl.appendChild(itemEl);
-            });
-        }
-        function renderArtistAlbumGrid(items) { /* Renders artists/albums */
-              items.forEach(item => {
-                 const itemEl = document.createElement('div');
-                 itemEl.className = 'file-item-grid';
-                 itemEl.dataset.name = item.name; // Use name for artist/album
-
-                 const icon = document.createElement('div');
-                 icon.className = 'file-icon-grid';
-                 const nameEl = document.createElement('div');
-                 nameEl.className = 'file-name-grid';
-                 nameEl.textContent = item.name;
-                 nameEl.title = item.name;
-                 const infoEl = document.createElement('div');
-                 infoEl.className = 'file-info-grid';
-
-                 if (item.isArtist) {
-                     icon.textContent = '👤'; icon.classList.add('artist'); // Artist icon
-                     itemEl.addEventListener('click', () => renderAlbumList(item.name));
-                     infoEl.textContent = `${item.itemCount} Album${item.itemCount !== 1 ? 's' : ''}`;
-                 } else if (item.isAlbum) {
-                     icon.textContent = '💿'; icon.classList.add('album'); // Album icon
-                     itemEl.addEventListener('click', () => renderTrackListForArtist(currentArtist, item.name));
-                     infoEl.textContent = `${item.itemCount} Track${item.itemCount !== 1 ? 's' : ''}`;
-                 }
-
-                 itemEl.appendChild(icon); itemEl.appendChild(nameEl); itemEl.appendChild(infoEl);
-                 fileBrowserContainerEl.appendChild(itemEl);
-             });
-        }
+        function renderFileBrowserGrid(items) { /* Renders files/folders */ /* ... same ... */ items.forEach(item => { const itemEl = document.createElement('div'); itemEl.className = 'file-item-grid'; itemEl.dataset.path = item.path; const icon = document.createElement('div'); icon.className = 'file-icon-grid'; const nameEl = document.createElement('div'); nameEl.className = 'file-name-grid'; nameEl.textContent = item.displayName || '[No Name]'; nameEl.title = item.displayName || item.path; const infoEl = document.createElement('div'); infoEl.className = 'file-info-grid'; if (item.isDirectory) { icon.textContent = '📁'; icon.classList.add('folder'); itemEl.addEventListener('click', () => updateDirectoryView(item.path)); infoEl.textContent = 'Folder'; } else if (item.isAudio) { icon.textContent = '🎵'; itemEl.addEventListener('click', () => playAudioFile(item, currentTracklist)); infoEl.textContent = formatFileSize(item.size); } itemEl.appendChild(icon); itemEl.appendChild(nameEl); itemEl.appendChild(infoEl); fileBrowserContainerEl.appendChild(itemEl); }); }
+        function renderArtistAlbumGrid(items) { /* Renders artists/albums */ /* ... same ... */ items.forEach(item => { const itemEl = document.createElement('div'); itemEl.className = 'file-item-grid'; itemEl.dataset.name = item.name; const icon = document.createElement('div'); icon.className = 'file-icon-grid'; const nameEl = document.createElement('div'); nameEl.className = 'file-name-grid'; nameEl.textContent = item.name; nameEl.title = item.name; const infoEl = document.createElement('div'); infoEl.className = 'file-info-grid'; if (item.isArtist) { icon.textContent = '👤'; icon.classList.add('artist'); itemEl.addEventListener('click', () => renderAlbumList(item.name)); infoEl.textContent = `${item.itemCount} Album${item.itemCount !== 1 ? 's' : ''}`; } else if (item.isAlbum) { icon.textContent = '💿'; icon.classList.add('album'); itemEl.addEventListener('click', () => renderTrackListForArtist(currentArtist, item.name)); infoEl.textContent = `${item.itemCount} Track${item.itemCount !== 1 ? 's' : ''}`; } itemEl.appendChild(icon); itemEl.appendChild(nameEl); itemEl.appendChild(infoEl); fileBrowserContainerEl.appendChild(itemEl); }); }
 
         // --- List View Rendering ---
-        function renderFileBrowserList(items) { /* Renders files/folders */
-              items.forEach(item => {
-                const itemEl = document.createElement('div');
-                itemEl.className = `file-item-list ${item.isAudio || item.isDirectory ? '' : 'non-interactive'}`;
-                itemEl.dataset.path = item.path;
-
-                const icon = document.createElement('div');
-                icon.className = 'file-icon-list';
-                const nameEl = document.createElement('div');
-                nameEl.className = 'file-name-list';
-                nameEl.textContent = item.title || item.displayName || '[No Name]'; // Prefer title
-                nameEl.title = item.displayName || item.path;
-                const infoEl = document.createElement('div'); infoEl.className = 'file-info-list';
-                const durationEl = document.createElement('span'); durationEl.className = 'file-duration-list';
-                const sizeEl = document.createElement('span'); sizeEl.className = 'file-size-list';
-
-                if (item.isDirectory) {
-                    icon.textContent = '📁'; icon.classList.add('folder');
-                    itemEl.addEventListener('click', () => updateDirectoryView(item.path));
-                    sizeEl.textContent = 'Folder';
-                } else if (item.isAudio) {
-                    icon.textContent = '🎵';
-                    itemEl.addEventListener('click', () => playAudioFile(item, currentTracklist)); // Pass context
-                     durationEl.textContent = item.duration ? formatTime(item.duration) : '--:--';
-                     durationEl.dataset.path = item.path; // For later update
-                    sizeEl.textContent = formatFileSize(item.size);
-                } else { /* Non-interactive */ icon.textContent = '📄'; sizeEl.textContent = formatFileSize(item.size); }
-
-                itemEl.appendChild(icon); itemEl.appendChild(nameEl);
-                infoEl.appendChild(durationEl); infoEl.appendChild(sizeEl);
-                itemEl.appendChild(infoEl);
-                fileBrowserContainerEl.appendChild(itemEl);
-            });
-        }
-        function renderArtistAlbumList(items) { /* Renders artists/albums */
-              items.forEach(item => {
-                 const itemEl = document.createElement('div');
-                 itemEl.className = 'file-item-list';
-                 itemEl.dataset.name = item.name;
-
-                 const icon = document.createElement('div');
-                 icon.className = 'file-icon-list';
-                 const nameEl = document.createElement('div');
-                 nameEl.className = 'file-name-list';
-                 nameEl.textContent = item.name;
-                 nameEl.title = item.name;
-                 // Use file-info-list structure but with custom content
-                 const infoEl = document.createElement('div'); infoEl.className = 'file-info-list';
-                 const countEl = document.createElement('span'); countEl.className = 'file-item-count'; // Specific class
-
-                 if (item.isArtist) {
-                     icon.textContent = '👤'; icon.classList.add('artist');
-                     itemEl.addEventListener('click', () => renderAlbumList(item.name));
-                     countEl.textContent = `${item.itemCount} Album${item.itemCount !== 1 ? 's' : ''}`;
-                 } else if (item.isAlbum) {
-                     icon.textContent = '💿'; icon.classList.add('album');
-                     itemEl.addEventListener('click', () => renderTrackListForArtist(currentArtist, item.name));
-                     countEl.textContent = `${item.itemCount} Track${item.itemCount !== 1 ? 's' : ''}`;
-                 }
-
-                 itemEl.appendChild(icon); itemEl.appendChild(nameEl);
-                 infoEl.appendChild(countEl); // Add count to the info container
-                 itemEl.appendChild(infoEl);
-                 fileBrowserContainerEl.appendChild(itemEl);
-             });
-        }
-
+        function renderFileBrowserList(items) { /* Renders files/folders */ /* ... same ... */ items.forEach(item => { const itemEl = document.createElement('div'); itemEl.className = `file-item-list ${item.isAudio || item.isDirectory ? '' : 'non-interactive'}`; itemEl.dataset.path = item.path; const icon = document.createElement('div'); icon.className = 'file-icon-list'; const nameEl = document.createElement('div'); nameEl.className = 'file-name-list'; nameEl.textContent = item.title || item.displayName || '[No Name]'; nameEl.title = item.displayName || item.path; const infoEl = document.createElement('div'); infoEl.className = 'file-info-list'; const durationEl = document.createElement('span'); durationEl.className = 'file-duration-list'; const sizeEl = document.createElement('span'); sizeEl.className = 'file-size-list'; if (item.isDirectory) { icon.textContent = '📁'; icon.classList.add('folder'); itemEl.addEventListener('click', () => updateDirectoryView(item.path)); sizeEl.textContent = 'Folder'; } else if (item.isAudio) { icon.textContent = '🎵'; itemEl.addEventListener('click', () => playAudioFile(item, currentTracklist)); durationEl.textContent = item.duration ? formatTime(item.duration) : '--:--'; durationEl.dataset.path = item.path; sizeEl.textContent = formatFileSize(item.size); } else { icon.textContent = '📄'; sizeEl.textContent = formatFileSize(item.size); } itemEl.appendChild(icon); itemEl.appendChild(nameEl); infoEl.appendChild(durationEl); infoEl.appendChild(sizeEl); itemEl.appendChild(infoEl); fileBrowserContainerEl.appendChild(itemEl); }); }
+        function renderArtistAlbumList(items) { /* Renders artists/albums */ /* ... same ... */ items.forEach(item => { const itemEl = document.createElement('div'); itemEl.className = 'file-item-list'; itemEl.dataset.name = item.name; const icon = document.createElement('div'); icon.className = 'file-icon-list'; const nameEl = document.createElement('div'); nameEl.className = 'file-name-list'; nameEl.textContent = item.name; nameEl.title = item.name; const infoEl = document.createElement('div'); infoEl.className = 'file-info-list'; const countEl = document.createElement('span'); countEl.className = 'file-item-count'; if (item.isArtist) { icon.textContent = '👤'; icon.classList.add('artist'); itemEl.addEventListener('click', () => renderAlbumList(item.name)); countEl.textContent = `${item.itemCount} Album${item.itemCount !== 1 ? 's' : ''}`; } else if (item.isAlbum) { icon.textContent = '💿'; icon.classList.add('album'); itemEl.addEventListener('click', () => renderTrackListForArtist(currentArtist, item.name)); countEl.textContent = `${item.itemCount} Track${item.itemCount !== 1 ? 's' : ''}`; } itemEl.appendChild(icon); itemEl.appendChild(nameEl); infoEl.appendChild(countEl); itemEl.appendChild(infoEl); fileBrowserContainerEl.appendChild(itemEl); }); }
 
         function formatFileSize(bytes) { /* ... same ... */ if (bytes === undefined || bytes === null || bytes < 0) return ''; if (bytes === 0) return '0 B'; if (bytes < 1024) return bytes + ' B'; const i = Math.floor(Math.log(bytes) / Math.log(1024)); const units = ['B', 'KB', 'MB', 'GB', 'TB']; const unitIndex = Math.min(i, units.length - 1); const fixedDigits = unitIndex >= 2 ? 1 : 0; return parseFloat((bytes / Math.pow(1024, unitIndex)).toFixed(fixedDigits)) + ' ' + units[unitIndex];}
 
         // --- Breadcrumbs ---
-        function updateBreadcrumbs() {
-            directoryPathEl.innerHTML = '';
-
-            if (currentMainView === VIEW_MODE_ARTIST) {
-                // Artist View Breadcrumbs
-                 const artistsCrumb = createArtistCrumb('Artists', null, null, !currentArtist && !currentAlbum);
-                 directoryPathEl.appendChild(artistsCrumb);
-
-                 if (currentArtist) {
-                      addSeparator();
-                      const artistCrumb = createArtistCrumb(currentArtist, currentArtist, null, !currentAlbum);
-                      directoryPathEl.appendChild(artistCrumb);
-                 }
-                 if (currentAlbum) {
-                      addSeparator();
-                      const albumCrumb = createArtistCrumb(currentAlbum, currentArtist, currentAlbum, true); // Always current if shown
-                      directoryPathEl.appendChild(albumCrumb);
-                 }
-
-            } else { // Folder View Breadcrumbs
-                const rootCrumb = createFolderCrumb('Root', '', currentDirectory === '');
-                directoryPathEl.appendChild(rootCrumb);
-
-                const parts = currentDirectory.split('/').filter(part => part !== '');
-                let pathAccumulator = '';
-                parts.forEach((part) => {
-                    pathAccumulator += part + '/';
-                    addSeparator();
-                    const crumb = createFolderCrumb(part, pathAccumulator, pathAccumulator === currentDirectory);
-                    directoryPathEl.appendChild(crumb);
-                });
-            }
-        }
-
-        function addSeparator() {
-             const separator = document.createElement('span');
-             separator.className = 'directory-separator';
-             separator.textContent = '›';
-             directoryPathEl.appendChild(separator);
-        }
-
-        function createFolderCrumb(text, path, isCurrent) {
-            const crumb = document.createElement('span');
-            crumb.className = `directory-crumb ${isCurrent ? 'current' : ''}`;
-            crumb.textContent = text;
-            if (!isCurrent) {
-                crumb.addEventListener('click', () => updateDirectoryView(path));
-            }
-            return crumb;
-        }
-        function createArtistCrumb(text, artist, album, isCurrent) {
-             const crumb = document.createElement('span');
-             crumb.className = `directory-crumb ${isCurrent ? 'current' : ''}`;
-             crumb.textContent = text;
-             if (!isCurrent) {
-                 crumb.addEventListener('click', () => {
-                     if (artist && album) { // Clicked on artist when album is shown? Go to artist.
-                         renderAlbumList(artist);
-                     } else if (artist) { // Clicked on 'Artists' when artist is shown? Go to artist list.
-                          renderArtistList();
-                     } else { // Clicked on 'Artists' at top level
-                          renderArtistList();
-                     }
-                 });
-             }
-             return crumb;
-        }
+        function updateBreadcrumbs() { /* ... same logic ... */ directoryPathEl.innerHTML = ''; if (currentMainView === VIEW_MODE_ARTIST) { const artistsCrumb = createArtistCrumb('Artists', null, null, !currentArtist && !currentAlbum); directoryPathEl.appendChild(artistsCrumb); if (currentArtist) { addSeparator(); const artistCrumb = createArtistCrumb(currentArtist, currentArtist, null, !currentAlbum); directoryPathEl.appendChild(artistCrumb); } if (currentAlbum) { addSeparator(); const albumCrumb = createArtistCrumb(currentAlbum, currentArtist, currentAlbum, true); directoryPathEl.appendChild(albumCrumb); } } else { const rootCrumb = createFolderCrumb('Root', '', currentDirectory === ''); directoryPathEl.appendChild(rootCrumb); const parts = currentDirectory.split('/').filter(part => part !== ''); let pathAccumulator = ''; parts.forEach((part) => { pathAccumulator += part + '/'; addSeparator(); const crumb = createFolderCrumb(part, pathAccumulator, pathAccumulator === currentDirectory); directoryPathEl.appendChild(crumb); }); } }
+        function addSeparator() { const separator = document.createElement('span'); separator.className = 'directory-separator'; separator.textContent = '›'; directoryPathEl.appendChild(separator); }
+        function createFolderCrumb(text, path, isCurrent) { /* ... same ... */ const crumb = document.createElement('span'); crumb.className = `directory-crumb ${isCurrent ? 'current' : ''}`; crumb.textContent = text; if (!isCurrent) { crumb.addEventListener('click', () => updateDirectoryView(path)); } return crumb; }
+        function createArtistCrumb(text, artist, album, isCurrent) { /* ... same ... */ const crumb = document.createElement('span'); crumb.className = `directory-crumb ${isCurrent ? 'current' : ''}`; crumb.textContent = text; if (!isCurrent) { crumb.addEventListener('click', () => { if (artist && album) { renderAlbumList(artist); } else if (artist) { renderArtistList(); } else { renderArtistList(); } }); } return crumb; }
 
 
         // --- Search Functionality ---
         function toggleSearch(forceState) { /* ... same ... */ const activate = forceState !== undefined ? forceState : !searchContainer.classList.contains('active'); if (activate) { searchContainer.classList.add('active'); searchBox.focus(); } else { searchContainer.classList.remove('active'); searchBox.blur(); } }
-        function handleSearch() {
-            // Search always operates on the flat file list and presents results
-            showSkeletonLoader(true);
-            fileBrowserContainerEl.innerHTML = '';
-            const searchTerm = searchBox.value.toLowerCase().trim();
-
-            // Hide main view toggle during search? Optional.
-            // folderViewBtn.parentElement.style.display = searchTerm ? 'none' : 'flex';
-
-            if (!searchTerm) {
-                // If search cleared, return to the previous view/state
-                 // folderViewBtn.parentElement.style.display = 'flex'; // Show toggle again
-                 applyMainViewMode(); // Reset breadcrumbs etc.
-                 rerenderCurrentView(); // Re-render the view before search
-                return;
-            }
-
-            const results = allArchiveFiles.filter(file =>
-                !file.isDirectory && file.isAudio &&
-                (file.path.toLowerCase().includes(searchTerm) ||
-                 (file.title && file.title.toLowerCase().includes(searchTerm)) ||
-                 (file.artist && file.artist.toLowerCase().includes(searchTerm)) ||
-                 (file.album && file.album.toLowerCase().includes(searchTerm))
-                 )
-            ).sort((a, b) => (a.title || a.displayName).localeCompare(b.title || b.displayName));
-
-             currentDirectoryItems = results; // Store search results
-             currentTracklist = results; // Playable list is the search results
-             currentTrackIndex = currentPlayingFile ? currentTracklist.findIndex(track => track.path === currentPlayingFile.path) : -1;
-             updatePrevNextButtons();
-
-            // Update breadcrumbs for search results
-             directoryPathEl.innerHTML = '';
-             const searchCrumb = createFolderCrumb(`Search: "${searchTerm}"`, '', true); // Use folder crumb style
-             directoryPathEl.appendChild(searchCrumb);
-             // Hide grid/list toggle during search? Or allow layout change? Let's allow it.
-              gridListToggleContainer.style.display = 'flex';
-
-            requestAnimationFrame(() => {
-                 renderFileBrowser(results); // Render results using standard file renderer
-                 hideSkeletonLoader();
-                 if (results.length === 0) displayStatus(`No results found for "${searchTerm}".`, false);
-                 else hideLoading();
-             });
-        }
+        function handleSearch() { /* ... same logic, searches flat files ... */ showSkeletonLoader(true); fileBrowserContainerEl.innerHTML = ''; const searchTerm = searchBox.value.toLowerCase().trim(); if (!searchTerm) { applyMainViewMode(); rerenderCurrentView(); return; } const results = allArchiveFiles.filter(file => !file.isDirectory && file.isAudio && (file.path.toLowerCase().includes(searchTerm) || (file.title && file.title.toLowerCase().includes(searchTerm)) || (file.artist && file.artist.toLowerCase().includes(searchTerm)) || (file.album && file.album.toLowerCase().includes(searchTerm))) ).sort((a, b) => (a.title || a.displayName).localeCompare(b.title || b.displayName)); currentDirectoryItems = results; currentTracklist = results; currentTrackIndex = currentPlayingFile ? currentTracklist.findIndex(track => track.path === currentPlayingFile.path) : -1; updatePrevNextButtons(); directoryPathEl.innerHTML = ''; const searchCrumb = createFolderCrumb(`Search: "${searchTerm}"`, '', true); directoryPathEl.appendChild(searchCrumb); gridListToggleContainer.style.display = 'flex'; requestAnimationFrame(() => { renderFileBrowser(results); hideSkeletonLoader(); if (results.length === 0) displayStatus(`No results found for "${searchTerm}".`, false); else hideLoading(); }); }
 
 
         // --- Metadata Handling ---
-        async function getMetadataFromTags(file, arrayBuffer) { /* Renamed */
-            // ... uses jsmediatags ... same logic as previous getMetadata
-             return new Promise((resolve) => {
-                 if (typeof jsmediatags === 'undefined') { resolve({}); return; }
-                 jsmediatags.read(new Blob([arrayBuffer]), {
-                    onSuccess: (tag) => resolve({ title: tag.tags.title, artist: tag.tags.artist, album: tag.tags.album, picture: tag.tags.picture }),
-                    onError: (error) => { console.warn('jsmediatags error:', file.path, error.type); resolve({}); }
-                });
-            });
-        }
-
-        function displayMetadataInPlayer(metadata) { /* Renamed */
-            const title = metadata?.title || currentPlayingFile?.title || currentPlayingFile?.displayName || 'Unknown Title';
-            const artist = metadata?.artist || currentPlayingFile?.artist || UNKNOWN_ARTIST;
-            const album = metadata?.album || currentPlayingFile?.album || UNKNOWN_ALBUM;
-
-            nowPlayingEl.textContent = title;
-            nowPlayingEl.title = title;
-
-            let artistAlbumText = artist === UNKNOWN_ARTIST ? album : (album === UNKNOWN_ALBUM ? artist : `${artist} • ${album}`);
-            if (artist === UNKNOWN_ARTIST && album === UNKNOWN_ALBUM) {
-                 artistAlbumText = 'Unknown Artist / Album';
-            }
-             nowPlayingArtistAlbumEl.textContent = artistAlbumText;
-             nowPlayingArtistAlbumEl.title = artistAlbumText;
-
-            // Path display (simplified)
-            const pathParts = currentPlayingFile?.path?.split('/').filter(p => p);
-            pathParts?.pop();
-            nowPlayingPathEl.textContent = pathParts?.length > 0 ? pathParts.join('/') : '';
-            nowPlayingPathEl.title = currentPlayingFile?.path || '';
-
-
-            // Handle Album Art
-            albumArtLoader.classList.remove('visible');
-            albumArtIcon.classList.remove('hidden');
-            albumArtImg.classList.remove('loaded');
-            albumArtImg.src = ''; // Clear previous image
-
-            if (metadata?.picture) {
-                 try {
-                     const { data, format } = metadata.picture;
-                     let base64String = "";
-                     for (let i = 0; i < data.length; i++) base64String += String.fromCharCode(data[i]);
-                     const imageUrl = `data:${format};base64,${window.btoa(base64String)}`;
-                     albumArtImg.onload = () => albumArtImg.classList.add('loaded'); // Add class on load
-                     albumArtImg.onerror = () => albumArtIcon.classList.remove('hidden'); // Show icon on error
-                     albumArtImg.src = imageUrl;
-                     albumArtIcon.classList.add('hidden'); // Hide icon immediately
-                 } catch (e) { console.error("Error displaying album art:", e); albumArtIcon.classList.remove('hidden'); }
-            }
-        }
+        async function getMetadataFromTags(file, arrayBuffer) { /* ... same ... */ return new Promise((resolve) => { if (typeof jsmediatags === 'undefined') { resolve({}); return; } jsmediatags.read(new Blob([arrayBuffer]), { onSuccess: (tag) => resolve({ title: tag.tags.title, artist: tag.tags.artist, album: tag.tags.album, picture: tag.tags.picture }), onError: (error) => { console.warn('jsmediatags error:', file?.path, error.type); resolve({}); } }); }); }
+        function displayMetadataInPlayer(metadata) { /* ... same ... */ const title = metadata?.title || currentPlayingFile?.title || currentPlayingFile?.displayName || 'Unknown Title'; const artist = metadata?.artist || currentPlayingFile?.artist || UNKNOWN_ARTIST; const album = metadata?.album || currentPlayingFile?.album || UNKNOWN_ALBUM; nowPlayingEl.textContent = title; nowPlayingEl.title = title; let artistAlbumText = artist === UNKNOWN_ARTIST ? album : (album === UNKNOWN_ALBUM ? artist : `${artist} • ${album}`); if (artist === UNKNOWN_ARTIST && album === UNKNOWN_ALBUM) { artistAlbumText = 'Unknown Artist / Album'; } nowPlayingArtistAlbumEl.textContent = artistAlbumText; nowPlayingArtistAlbumEl.title = artistAlbumText; const pathParts = currentPlayingFile?.path?.split('/').filter(p => p); pathParts?.pop(); nowPlayingPathEl.textContent = pathParts?.length > 0 ? pathParts.join('/') : ''; nowPlayingPathEl.title = currentPlayingFile?.path || ''; albumArtLoader.classList.remove('visible'); albumArtIcon.classList.remove('hidden'); albumArtImg.classList.remove('loaded'); albumArtImg.src = ''; if (metadata?.picture) { try { const { data, format } = metadata.picture; let base64String = ""; for (let i = 0; i < data.length; i++) base64String += String.fromCharCode(data[i]); const imageUrl = `data:${format};base64,${window.btoa(base64String)}`; albumArtImg.onload = () => albumArtImg.classList.add('loaded'); albumArtImg.onerror = () => albumArtIcon.classList.remove('hidden'); albumArtImg.src = imageUrl; albumArtIcon.classList.add('hidden'); } catch (e) { console.error("Error displaying album art:", e); albumArtIcon.classList.remove('hidden'); } } }
 
         // --- Caching Logic ---
         function manageCache(filePath, data) { /* ... same ... */ if (audioCache.size >= MAX_CACHE_SIZE) { const oldestPath = cacheOrder.shift(); if (oldestPath) { audioCache.delete(oldestPath); } } audioCache.set(filePath, { ...data, timestamp: Date.now() }); cacheOrder.push(filePath); }
@@ -1328,191 +875,36 @@
 
 
         // --- Audio Playback (Modified for context) ---
-         async function playAudioFile(file, contextTracklist) { // Added contextTracklist
-            if (!file || !file.isAudio) return;
-            if (!audioContext) { /* ... alert ... */ return; }
-
-            // Set the correct tracklist for Prev/Next based on where it was clicked
-             currentTracklist = contextTracklist || []; // Fallback to empty if undefined
-             console.log("Playing:", file.path, "Context tracklist size:", currentTracklist.length);
-
-            stopPlayback();
-
-            currentPlayingFile = file; // The file object itself
-            currentTrackIndex = currentTracklist.findIndex(track => track.path === file.path);
-            updatePlayerUI(true, 'Connecting...'); // Show loading
-
-             // 1. Check Cache
-             if (audioCache.has(file.path)) {
-                 console.log("Playing from cache:", file.path);
-                 const cachedData = audioCache.get(file.path);
-                 currentAudioBuffer = cachedData.buffer;
-                 // Update file object with cached metadata if more accurate
-                 currentPlayingFile.metadata = cachedData.metadata;
-                 currentPlayingFile.title = cachedData.metadata?.title || currentPlayingFile.title;
-                 currentPlayingFile.artist = cachedData.metadata?.artist || currentPlayingFile.artist;
-                 currentPlayingFile.album = cachedData.metadata?.album || currentPlayingFile.album;
-                 currentPlayingFile.duration = currentAudioBuffer.duration;
-
-                 displayMetadataInPlayer(cachedData.metadata);
-                 startPlayback(0);
-                 updatePlayerUI();
-                 updatePrevNextButtons();
-                 updateFileDurationInList(file.path, currentAudioBuffer.duration);
-                 return;
-             }
-
-             // 2. Fetch and Process
-             updatePlayerUI(true, 'Downloading...');
-             albumArtLoader.classList.add('visible');
-             albumArtIcon.classList.add('hidden');
-             albumArtImg.classList.remove('loaded'); albumArtImg.src = '';
-
-             try {
-                 const arrayBuffer = await fetchWithTimeoutAndRetry(`${archiveDownloadUrlBase}/${encodeURIComponent(file.path)}`, FETCH_TIMEOUT_MS, MAX_RETRIES);
-                 if (!currentPlayingFile || file.path !== currentPlayingFile.path) return; // Selection changed
-
-                 updatePlayerUI(true, 'Decoding...');
-                 const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
-                 if (!currentPlayingFile || file.path !== currentPlayingFile.path) return;
-
-                 currentAudioBuffer = decodedBuffer;
-                 currentPlayingFile.duration = currentAudioBuffer.duration;
-
-                  // Get Metadata from tags (may refine API data)
-                  updatePlayerUI(true, 'Reading Tags...');
-                  const tagsMetadata = await getMetadataFromTags(file, arrayBuffer);
-                  currentPlayingFile.metadata = tagsMetadata; // Store tag metadata
-
-                  // Update file object properties with more accurate tag data if available
-                  currentPlayingFile.title = tagsMetadata?.title || currentPlayingFile.title;
-                  currentPlayingFile.artist = tagsMetadata?.artist || currentPlayingFile.artist;
-                  currentPlayingFile.album = tagsMetadata?.album || currentPlayingFile.album;
-
-                  // Cache the data (buffer + definitive tag metadata)
-                  manageCache(file.path, { buffer: currentAudioBuffer, metadata: tagsMetadata });
-
-                  displayMetadataInPlayer(tagsMetadata);
-                  startPlayback(0);
-                  updatePlayerUI();
-                  updatePrevNextButtons();
-                  updateFileDurationInList(file.path, currentAudioBuffer.duration);
-
-             } catch (error) {
-                 console.error(`Error processing audio file ${file.path}:`, error);
-                 if (currentPlayingFile && file.path === currentPlayingFile.path) {
-                     stopPlayback(true); // Clear info on error
-                     displayStatus(`Error playing ${file.displayName || file.path}: ${error.message}`, true);
-                 }
-                  albumArtLoader.classList.remove('visible'); // Hide loader on error
-                  albumArtIcon.classList.remove('hidden'); // Show default icon
-             }
-        }
-
-        // Fetch helper with timeout and retry
-        async function fetchWithTimeoutAndRetry(url, timeout, retries) { /* ... same ... */
-            let attempts = 0;
-             while (attempts <= retries) {
-                 attempts++;
-                 if (fetchAbortController) { fetchAbortController.abort("New fetch requested"); }
-                 fetchAbortController = new AbortController();
-                 const { signal } = fetchAbortController;
-                 const timeoutId = setTimeout(() => { console.log(`Fetch timeout triggered for ${url}`); fetchAbortController.abort("Timeout"); }, timeout);
-
-                 try {
-                      if (attempts > 1) { console.log(`Retrying fetch for ${url} (Attempt ${attempts})...`); updatePlayerUI(true, `Retrying (${attempts}/${retries})...`); await new Promise(resolve => setTimeout(resolve, 500)); }
-                      const response = await fetch(url, { signal });
-                      clearTimeout(timeoutId);
-                      if (!response.ok) { throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`); }
-                      const arrayBuffer = await response.arrayBuffer();
-                      fetchAbortController = null; return arrayBuffer;
-                 } catch (error) {
-                     clearTimeout(timeoutId); fetchAbortController = null;
-                     if (error.name === 'AbortError') { console.error(`Fetch aborted for ${url}: ${error.message}`); if (error.message === "Timeout" && attempts > retries) throw new Error(`Fetch timed out after ${retries + 1} attempts.`); }
-                     else { console.error(`Fetch error for ${url}:`, error); }
-                     if (attempts > retries) throw error; // Rethrow if max retries reached or non-timeout abort
-                 }
-             }
-             throw new Error("Fetch failed after multiple retries (Should not be reached).");
-        }
-
+         async function playAudioFile(file, contextTracklist) { /* ... same, uses contextTracklist ... */ if (!file || !file.isAudio) return; if (!audioContext) { alert("Audio system not ready. Click page first."); return; } currentTracklist = contextTracklist || []; console.log("Playing:", file.path, "Context tracklist size:", currentTracklist.length); stopPlayback(); currentPlayingFile = file; currentTrackIndex = currentTracklist.findIndex(track => track.path === file.path); updatePlayerUI(true, 'Connecting...'); if (audioCache.has(file.path)) { console.log("Playing from cache:", file.path); const cachedData = audioCache.get(file.path); currentAudioBuffer = cachedData.buffer; currentPlayingFile.metadata = cachedData.metadata; currentPlayingFile.title = cachedData.metadata?.title || currentPlayingFile.title; currentPlayingFile.artist = cachedData.metadata?.artist || currentPlayingFile.artist; currentPlayingFile.album = cachedData.metadata?.album || currentPlayingFile.album; currentPlayingFile.duration = currentAudioBuffer.duration; displayMetadataInPlayer(cachedData.metadata); startPlayback(0); updatePlayerUI(); updatePrevNextButtons(); updateFileDurationInList(file.path, currentAudioBuffer.duration); return; } updatePlayerUI(true, 'Downloading...'); albumArtLoader.classList.add('visible'); albumArtIcon.classList.add('hidden'); albumArtImg.classList.remove('loaded'); albumArtImg.src = ''; try { const arrayBuffer = await fetchWithTimeoutAndRetry(`${archiveDownloadUrlBase}/${encodeURIComponent(file.path)}`, FETCH_TIMEOUT_MS, MAX_RETRIES); if (!currentPlayingFile || file.path !== currentPlayingFile.path) return; updatePlayerUI(true, 'Decoding...'); const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0)); if (!currentPlayingFile || file.path !== currentPlayingFile.path) return; currentAudioBuffer = decodedBuffer; currentPlayingFile.duration = currentAudioBuffer.duration; updatePlayerUI(true, 'Reading Tags...'); const tagsMetadata = await getMetadataFromTags(file, arrayBuffer); currentPlayingFile.metadata = tagsMetadata; currentPlayingFile.title = tagsMetadata?.title || currentPlayingFile.title; currentPlayingFile.artist = tagsMetadata?.artist || currentPlayingFile.artist; currentPlayingFile.album = tagsMetadata?.album || currentPlayingFile.album; manageCache(file.path, { buffer: currentAudioBuffer, metadata: tagsMetadata }); displayMetadataInPlayer(tagsMetadata); startPlayback(0); updatePlayerUI(); updatePrevNextButtons(); updateFileDurationInList(file.path, currentAudioBuffer.duration); } catch (error) { console.error(`Error processing audio file ${file.path}:`, error); if (currentPlayingFile && file.path === currentPlayingFile.path) { stopPlayback(true); displayStatus(`Error playing ${file.displayName || file.path}: ${error.message}`, true); } albumArtLoader.classList.remove('visible'); albumArtIcon.classList.remove('hidden'); } }
+        async function fetchWithTimeoutAndRetry(url, timeout, retries) { /* ... same ... */ let attempts = 0; while (attempts <= retries) { attempts++; if (fetchAbortController) { fetchAbortController.abort("New fetch requested"); } fetchAbortController = new AbortController(); const { signal } = fetchAbortController; const timeoutId = setTimeout(() => { console.log(`Fetch timeout triggered for ${url}`); fetchAbortController.abort("Timeout"); }, timeout); try { if (attempts > 1) { console.log(`Retrying fetch for ${url} (Attempt ${attempts})...`); updatePlayerUI(true, `Retrying (${attempts}/${retries})...`); await new Promise(resolve => setTimeout(resolve, 500)); } const response = await fetch(url, { signal }); clearTimeout(timeoutId); if (!response.ok) { throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`); } const arrayBuffer = await response.arrayBuffer(); fetchAbortController = null; return arrayBuffer; } catch (error) { clearTimeout(timeoutId); fetchAbortController = null; if (error.name === 'AbortError') { console.error(`Fetch aborted for ${url}: ${error.message}`); if (error.message === "Timeout" && attempts > retries) throw new Error(`Fetch timed out after ${retries + 1} attempts.`); } else { console.error(`Fetch error for ${url}:`, error); } if (attempts > retries) throw error; } } throw new Error("Fetch failed after multiple retries."); }
 
          function cleanupPlaybackResources() { /* ... same ... */ clearInterval(progressUpdateInterval); progressUpdateInterval = null; if (sourceNode) { try { sourceNode.onended = null; sourceNode.stop(); } catch (e) {} sourceNode.disconnect(); sourceNode = null; } if (fetchAbortController) { fetchAbortController.abort("Playback stopped"); fetchAbortController = null; } }
          function startPlayback(offset = 0) { /* ... same ... */ if (!currentAudioBuffer || !audioContext || !gainNode) return; cleanupPlaybackResources(); sourceNode = audioContext.createBufferSource(); sourceNode.buffer = currentAudioBuffer; sourceNode.playbackRate.value = currentPlaybackRate; sourceNode.connect(gainNode); const validOffset = Math.max(0, Math.min(offset, currentAudioBuffer.duration)); _startOffset = validOffset; _startTime = audioContext.currentTime; _pausedTime = 0; sourceNode.start(0, validOffset); isPlaying = true; sourceNode.onended = handleTrackEnd; progressUpdateInterval = setInterval(updateProgress, 250); updatePlayerUI(); }
          function stopPlayback(clearInfo = false) { /* ... same ... */ if (isPlaying) { _pausedTime = getCurrentPlaybackTime(); } isPlaying = false; cleanupPlaybackResources(); if (clearInfo) { currentPlayingFile = null; currentAudioBuffer = null; currentTrackIndex = -1; _startOffset = 0; _pausedTime = 0; updatePlayerUI(); updatePrevNextButtons(); } else if (currentAudioBuffer) { updatePlayerUI(); updateProgress(); } else { updatePlayerUI(); } }
          function togglePlayback() { /* ... same ... */ if (!currentAudioBuffer || !audioContext) return; if (isPlaying) { stopPlayback(false); } else { const resumeTime = (_pausedTime > 0 && _pausedTime < currentAudioBuffer.duration) ? _pausedTime : 0; startPlayback(resumeTime); } }
-         function getCurrentPlaybackTime() { if (!audioContext || !currentAudioBuffer) return 0; if (isPlaying && sourceNode && _startTime > 0) { const elapsedTime = audioContext.currentTime - _startTime; return Math.max(0, Math.min(currentAudioBuffer.duration, _startOffset + (elapsedTime * currentPlaybackRate))); } else { return Math.max(0, Math.min(currentAudioBuffer?.duration || 0, _pausedTime)); } }
+         function getCurrentPlaybackTime() { /* ... same ... */ if (!audioContext || !currentAudioBuffer) return 0; if (isPlaying && sourceNode && _startTime > 0) { const elapsedTime = audioContext.currentTime - _startTime; return Math.max(0, Math.min(currentAudioBuffer.duration, _startOffset + (elapsedTime * currentPlaybackRate))); } else { return Math.max(0, Math.min(currentAudioBuffer?.duration || 0, _pausedTime)); } }
          function handleTrackEnd() { /* ... same ... */ console.log("Track ended naturally."); _startOffset = 0; _pausedTime = currentAudioBuffer ? currentAudioBuffer.duration : 0; _startTime = 0; isPlaying = false; cleanupPlaybackResources(); updateProgress(); updatePlayerUI(); playNext(); }
          function seek(offsetSeconds) { /* ... same ... */ if (!currentAudioBuffer || !audioContext) return; const currentPosition = getCurrentPlaybackTime(); let seekTime = currentPosition + offsetSeconds; seekTime = Math.max(0, Math.min(seekTime, currentAudioBuffer.duration)); console.log(`Seeking by ${offsetSeconds}s to: ${formatTime(seekTime)}`); _pausedTime = seekTime; if (isPlaying) { startPlayback(seekTime); } else { updateProgress(); } }
-         function playNext() { if (currentTracklist.length === 0 || currentTrackIndex === -1) return; let nextIndex = currentTrackIndex + 1; if (nextIndex >= currentTracklist.length) nextIndex = 0; if (currentTracklist[nextIndex]) playAudioFile(currentTracklist[nextIndex], currentTracklist); else stopPlayback(true); }
-         function playPrev() { if (currentTracklist.length === 0 || currentTrackIndex === -1) return; let prevIndex = currentTrackIndex - 1; if (prevIndex < 0) prevIndex = currentTracklist.length - 1; if (currentTracklist[prevIndex]) playAudioFile(currentTracklist[prevIndex], currentTracklist); else stopPlayback(true); }
+         function playNext() { /* ... same, uses currentTracklist ... */ if (currentTracklist.length === 0 || currentTrackIndex === -1) return; let nextIndex = currentTrackIndex + 1; if (nextIndex >= currentTracklist.length) nextIndex = 0; if (currentTracklist[nextIndex]) playAudioFile(currentTracklist[nextIndex], currentTracklist); else stopPlayback(true); }
+         function playPrev() { /* ... same, uses currentTracklist ... */ if (currentTracklist.length === 0 || currentTrackIndex === -1) return; let prevIndex = currentTrackIndex - 1; if (prevIndex < 0) prevIndex = currentTracklist.length - 1; if (currentTracklist[prevIndex]) playAudioFile(currentTracklist[prevIndex], currentTracklist); else stopPlayback(true); }
          async function triggerDownload() { /* ... same ... */ if (!currentPlayingFile || !currentPlayingFile.path || downloadBtn.classList.contains('loading') || downloadBtn.disabled) return; const fileUrl = `${archiveDownloadUrlBase}/${encodeURIComponent(currentPlayingFile.path)}`; const filename = currentPlayingFile.displayName || currentPlayingFile.path.split('/').pop(); console.log(`Initiating download for: ${filename}`); downloadBtn.classList.add('loading'); downloadBtn.disabled = true; try { const response = await fetch(fileUrl); if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`); const blob = await response.blob(); const blobUrl = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = blobUrl; link.download = filename; document.body.appendChild(link); link.click(); document.body.removeChild(link); setTimeout(() => URL.revokeObjectURL(blobUrl), 100); console.log(`Download triggered for ${filename}`); } catch (error) { console.error("Download failed:", error); alert(`Failed to download "${filename}". Error: ${error.message}`); } finally { downloadBtn.classList.remove('loading'); downloadBtn.disabled = !currentAudioBuffer || !currentPlayingFile; } }
 
 
         // --- UI Updates ---
-        function updatePlayerUI(isLoading = false, loadingMessage = 'Loading...') { /* Mostly same, ensure metadata display handled correctly */
-            const hasActiveTrack = !!currentPlayingFile;
-            const hasBuffer = !!currentAudioBuffer;
-            const canControl = hasActiveTrack && hasBuffer && !isLoading;
-
-            playPauseBtn.disabled = !hasActiveTrack || isLoading || !audioContext;
-            pitchSlider.disabled = !canControl;
-            downloadBtn.disabled = !canControl || downloadBtn.classList.contains('loading');
-            volumeSlider.disabled = !audioContext;
-            updatePrevNextButtons(); // Uses currentTracklist length and index
-
-            if (isLoading) {
-                albumArtLoader.classList.add('visible');
-                albumArtIcon.classList.add('hidden');
-                albumArtImg.classList.remove('loaded'); albumArtImg.src = '';
-                nowPlayingEl.textContent = currentPlayingFile?.displayName || 'Loading...';
-                nowPlayingEl.title = currentPlayingFile?.displayName || 'Loading...';
-                nowPlayingArtistAlbumEl.textContent = loadingMessage;
-                nowPlayingArtistAlbumEl.title = loadingMessage;
-                nowPlayingPathEl.textContent = '';
-                playPauseBtn.textContent = '⏳';
-                durationEl.textContent = '--:--';
-                currentTimeEl.textContent = '--:--';
-                progressBar.style.width = '0%';
-                miniProgressBar.style.setProperty('--progress-width', '0%');
-            } else if (hasActiveTrack && hasBuffer) {
-                 // Metadata display should happen via displayMetadataInPlayer
-                 if (!currentPlayingFile.metadata) { displayMetadataInPlayer({}); } // Ensure defaults if somehow missing
-                 albumArtLoader.classList.remove('visible'); // Ensure loader hidden
-                 playPauseBtn.textContent = isPlaying ? '⏸' : '▶';
-                 durationEl.textContent = formatTime(currentAudioBuffer.duration);
-                 updateProgress();
-            } else { // Default state
-                albumArtLoader.classList.remove('visible');
-                albumArtImg.classList.remove('loaded'); albumArtImg.src = '';
-                albumArtIcon.classList.remove('hidden');
-                nowPlayingEl.textContent = 'Not playing'; nowPlayingEl.title = 'Not playing';
-                nowPlayingArtistAlbumEl.textContent = 'Select an MP3 file'; nowPlayingArtistAlbumEl.title = 'Select an MP3 file';
-                nowPlayingPathEl.textContent = '';
-                playPauseBtn.textContent = '▶'; playPauseBtn.disabled = true;
-                pitchSlider.disabled = true; downloadBtn.disabled = true;
-                prevBtn.disabled = true; nextBtn.disabled = true;
-                durationEl.textContent = '0:00'; currentTimeEl.textContent = '0:00';
-                progressBar.style.width = '0%';
-                miniProgressBar.style.setProperty('--progress-width', '0%');
-            }
-        }
-        function updateProgress() { /* ... same ... update both progress bars */ if (!audioContext || !currentAudioBuffer) { currentTimeEl.textContent = '0:00'; progressBar.style.width = '0%'; miniProgressBar.style.setProperty('--progress-width', `0%`); return; } const currentPosition = getCurrentPlaybackTime(); const duration = currentAudioBuffer.duration; currentTimeEl.textContent = formatTime(currentPosition); const progressPercent = (duration > 0) ? (currentPosition / duration) * 100 : 0; const progressWidth = `${Math.min(100, progressPercent)}%`; progressBar.style.width = progressWidth; if (miniProgressBar.style.getPropertyValue('--progress-width') !== progressWidth) { miniProgressBar.style.setProperty('--progress-width', progressWidth); } }
+        function updatePlayerUI(isLoading = false, loadingMessage = 'Loading...') { /* ... same logic ... */ const hasActiveTrack = !!currentPlayingFile; const hasBuffer = !!currentAudioBuffer; const canControl = hasActiveTrack && hasBuffer && !isLoading; playPauseBtn.disabled = !hasActiveTrack || isLoading || !audioContext; pitchSlider.disabled = !canControl; downloadBtn.disabled = !canControl || downloadBtn.classList.contains('loading'); volumeSlider.disabled = !audioContext; updatePrevNextButtons(); if (isLoading) { albumArtLoader.classList.add('visible'); albumArtIcon.classList.add('hidden'); albumArtImg.classList.remove('loaded'); albumArtImg.src = ''; nowPlayingEl.textContent = currentPlayingFile?.displayName || 'Loading...'; nowPlayingEl.title = currentPlayingFile?.displayName || 'Loading...'; nowPlayingArtistAlbumEl.textContent = loadingMessage; nowPlayingArtistAlbumEl.title = loadingMessage; nowPlayingPathEl.textContent = ''; playPauseBtn.textContent = '⏳'; durationEl.textContent = '--:--'; currentTimeEl.textContent = '--:--'; progressBar.style.width = '0%'; miniProgressBar.style.setProperty('--progress-width', '0%'); } else if (hasActiveTrack && hasBuffer) { if (!currentPlayingFile.metadata) { displayMetadataInPlayer({}); } albumArtLoader.classList.remove('visible'); playPauseBtn.textContent = isPlaying ? '⏸' : '▶'; durationEl.textContent = formatTime(currentAudioBuffer.duration); updateProgress(); } else { albumArtLoader.classList.remove('visible'); albumArtImg.classList.remove('loaded'); albumArtImg.src = ''; albumArtIcon.classList.remove('hidden'); nowPlayingEl.textContent = 'Not playing'; nowPlayingEl.title = 'Not playing'; nowPlayingArtistAlbumEl.textContent = 'Select an MP3 file'; nowPlayingArtistAlbumEl.title = 'Select an MP3 file'; nowPlayingPathEl.textContent = ''; playPauseBtn.textContent = '▶'; playPauseBtn.disabled = true; pitchSlider.disabled = true; downloadBtn.disabled = true; prevBtn.disabled = true; nextBtn.disabled = true; durationEl.textContent = '0:00'; currentTimeEl.textContent = '0:00'; progressBar.style.width = '0%'; miniProgressBar.style.setProperty('--progress-width', '0%'); } }
+        function updateProgress() { /* ... same ... */ if (!audioContext || !currentAudioBuffer) { currentTimeEl.textContent = '0:00'; progressBar.style.width = '0%'; miniProgressBar.style.setProperty('--progress-width', `0%`); return; } const currentPosition = getCurrentPlaybackTime(); const duration = currentAudioBuffer.duration; currentTimeEl.textContent = formatTime(currentPosition); const progressPercent = (duration > 0) ? (currentPosition / duration) * 100 : 0; const progressWidth = `${Math.min(100, progressPercent)}%`; progressBar.style.width = progressWidth; if (miniProgressBar.style.getPropertyValue('--progress-width') !== progressWidth) { miniProgressBar.style.setProperty('--progress-width', progressWidth); } }
         function updateFileDurationInList(filePath, durationSeconds) { /* ... same ... */ if (currentLayoutMode !== 'list' || !durationSeconds) return; const durationStr = formatTime(durationSeconds); const durationElement = fileBrowserContainerEl.querySelector(`.file-duration-list[data-path="${CSS.escape(filePath)}"]`); if (durationElement && durationElement.textContent !== durationStr) { durationElement.textContent = durationStr; } }
         function updateVolumeIcon(volume) { /* ... same ... */ volumeIcon.textContent = (volume <= 0) ? '🔇' : (volume < 0.5) ? '🔈' : '🔊'; }
-        function updatePrevNextButtons() { const canNavigate = currentTracklist && currentTracklist.length > 1 && currentTrackIndex !== -1; prevBtn.disabled = !canNavigate; nextBtn.disabled = !canNavigate; }
-
+        function updatePrevNextButtons() { /* ... same ... */ const canNavigate = currentTracklist && currentTracklist.length > 1 && currentTrackIndex !== -1; prevBtn.disabled = !canNavigate; nextBtn.disabled = !canNavigate; }
 
         // --- Minimizable Player ---
         function togglePlayerMinimized() { /* ... same ... */ isPlayerMinimized = !isPlayerMinimized; applyMinimizedState(); saveSetting('playerMinimized', isPlayerMinimized); }
         function applyMinimizedState() { /* ... same ... */ const toggleIcon = playerToggleBtn.querySelector('.toggle-icon'); if (isPlayerMinimized) { playerSection.classList.add('minimized'); if(toggleIcon) toggleIcon.textContent = '▲'; playerToggleBtn.title = "Expand Player"; } else { playerSection.classList.remove('minimized'); if(toggleIcon) toggleIcon.textContent = '▼'; playerToggleBtn.title = "Minimize Player"; } }
 
-
         // --- Helper Functions ---
         function formatTime(seconds) { /* ... same ... */ if (isNaN(seconds) || !isFinite(seconds) || seconds < 0) return '0:00'; const totalSeconds = Math.floor(seconds); const mins = Math.floor(totalSeconds / 60); const secs = totalSeconds % 60; return `${mins}:${secs.toString().padStart(2, '0')}`; }
         function showSearchHintIfNeeded() { /* ... same ... */ if (localStorage.getItem('searchHintDismissed') !== 'true') { setTimeout(() => searchHintPopup?.classList.add('visible'), 500); } }
         function dismissSearchHint() { /* ... same ... */ if (!searchHintPopup) return; searchHintPopup.style.opacity = '0'; setTimeout(() => searchHintPopup.classList.remove('visible'), 300); try { localStorage.setItem('searchHintDismissed', 'true'); } catch (e) { console.warn("Could not save hint dismissal state:", e); } }
-
 
         // --- Event Listeners ---
         function setupEventListeners() {
@@ -1525,12 +917,10 @@
              document.addEventListener('keydown', (e) => {
                  const activeEl = document.activeElement;
                  const isInputFocused = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable);
-
                  if (e.key === '/' && !isInputFocused) { e.preventDefault(); toggleSearch(true); }
                  else if (e.key === 'Escape' && searchContainer.classList.contains('active')) { toggleSearch(false); if (searchBox.value) { searchBox.value = ''; handleSearch(); } }
                  else if (e.code === 'Space' && !isInputFocused) { e.preventDefault(); if (!playPauseBtn.disabled) togglePlayback(); }
                  else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !isInputFocused && currentAudioBuffer) { e.preventDefault(); const seekDirection = e.key === 'ArrowLeft' ? -1 : 1; seek(seekDirection * SEEK_TIME_SECONDS); }
-                 // Add more shortcuts if desired (e.g., volume, next/prev)
              });
 
             // Player Controls
