@@ -157,8 +157,29 @@
         /* Player Info (Left) */
         .player-info { display: flex; align-items: center; gap: 15px; flex-basis: 25%; /* Base width */ flex-shrink: 1; /* Allow shrinking */ min-width: 180px; /* Minimum width */ overflow: hidden; order: 1; } /* Desktop order */
         .player-album-art { position: relative; width: 55px; height: 55px; /* Slightly larger on desktop */ background-color: var(--bg-tertiary); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; flex-shrink: 0; color: var(--icon-color-accent); overflow: hidden; }
-        .player-album-art img { display: block; width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; opacity: 0; transition: opacity 0.3s ease; }
-        .player-album-art #album-art-icon { position: relative; z-index: 1; transition: opacity 0.3s ease; }
+        .player-album-art img { 
+            display: block; 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            opacity: 0; 
+            transition: opacity 0.3s ease;
+            z-index: 2; /* Add z-index to ensure image is above icon */
+        }
+        .player-album-art img.loaded {
+            opacity: 1;
+        }
+        .player-album-art img.loading {
+            opacity: 0;
+        }
+        .player-album-art #album-art-icon { 
+            position: relative; 
+            z-index: 1; /* Below the image */
+            transition: opacity 0.3s ease; 
+        }
         .player-album-art #album-art-icon.hidden { opacity: 0; }
         .player-album-art .loader-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; z-index: 2; }
         .player-album-art .loader-overlay .loader { margin: 0; }
@@ -531,8 +552,8 @@
         const archiveIdentifier = 'mp3archive'; // <<< Your Archive Identifier
         const archiveApiUrl = `https://archive.org/metadata/${archiveIdentifier}`;
         const archiveDownloadUrlBase = `https://archive.org/download/${archiveIdentifier}`;
-        const FETCH_TIMEOUT_MS = 40000;
-        const MAX_RETRIES = 2;
+        const FETCH_TIMEOUT_MS = 60000;
+        const MAX_RETRIES = 5;
         const MAX_CACHE_SIZE = 20;
         const SEEK_TIME_SECONDS = 5;
         const UNKNOWN_ARTIST = "[Unknown Artist]";
@@ -772,7 +793,67 @@
 
         // --- Metadata (No changes needed) ---
         async function getMetadataFromTags(file, arrayBuffer) { return new Promise((resolve) => { if (typeof jsmediatags === 'undefined') { resolve({}); return; } jsmediatags.read(new Blob([arrayBuffer]), { onSuccess: (tag) => resolve({ title: tag.tags.title, artist: tag.tags.artist, album: tag.tags.album, picture: tag.tags.picture }), onError: (error) => { console.warn('jsmediatags error:', file?.path, error.type, error.info); resolve({}); } }); }); }
-        function displayMetadataInPlayer(metadata) { const title = metadata?.title || currentPlayingFile?.title || currentPlayingFile?.displayName || 'Unknown Title'; const artist = metadata?.artist || currentPlayingFile?.artist || UNKNOWN_ARTIST; const album = metadata?.album || currentPlayingFile?.album || UNKNOWN_ALBUM; nowPlayingEl.textContent = title; nowPlayingEl.title = title; let artistAlbumText = artist === UNKNOWN_ARTIST ? album : (album === UNKNOWN_ALBUM ? artist : `${artist} • ${album}`); if (artist === UNKNOWN_ARTIST && album === UNKNOWN_ALBUM) artistAlbumText = 'Unknown Artist / Album'; nowPlayingArtistAlbumEl.textContent = artistAlbumText; nowPlayingArtistAlbumEl.title = artistAlbumText; const pathParts = currentPlayingFile?.path?.split('/').filter(p => p); pathParts?.pop(); nowPlayingPathEl.textContent = pathParts?.length > 0 ? pathParts.join(' / ') : ''; nowPlayingPathEl.title = currentPlayingFile?.path || ''; albumArtLoader.classList.remove('visible'); albumArtIcon.classList.remove('hidden'); albumArtImg.classList.remove('loaded'); albumArtImg.src = ''; albumArtImg.style.display = 'none'; if (metadata?.picture && metadata.picture.data) { try { const { data, format } = metadata.picture; let base64String = ""; const chunkSize = 8192; for (let i = 0; i < data.length; i += chunkSize) base64String += String.fromCharCode.apply(null, data.slice(i, i + chunkSize)); const imageUrl = `data:${format};base64,${window.btoa(base64String)}`; albumArtImg.onload = () => { albumArtImg.classList.add('loaded'); albumArtImg.style.display = 'block'; albumArtIcon.classList.add('hidden'); }; albumArtImg.onerror = () => { albumArtIcon.classList.remove('hidden'); albumArtImg.style.display = 'none'; }; albumArtImg.src = imageUrl; } catch (e) { console.error("Error displaying album art:", e); albumArtIcon.classList.remove('hidden'); albumArtImg.style.display = 'none'; } } else { albumArtIcon.classList.remove('hidden'); albumArtImg.style.display = 'none'; } }
+        function displayMetadataInPlayer(metadata) { 
+            const title = metadata?.title || currentPlayingFile?.title || currentPlayingFile?.displayName || 'Unknown Title'; 
+            const artist = metadata?.artist || currentPlayingFile?.artist || UNKNOWN_ARTIST; 
+            const album = metadata?.album || currentPlayingFile?.album || UNKNOWN_ALBUM; 
+            nowPlayingEl.textContent = title; 
+            nowPlayingEl.title = title; 
+            let artistAlbumText = artist === UNKNOWN_ARTIST ? album : (album === UNKNOWN_ALBUM ? artist : `${artist} • ${album}`); 
+            if (artist === UNKNOWN_ARTIST && album === UNKNOWN_ALBUM) artistAlbumText = 'Unknown Artist / Album'; 
+            nowPlayingArtistAlbumEl.textContent = artistAlbumText; 
+            nowPlayingArtistAlbumEl.title = artistAlbumText; 
+            const pathParts = currentPlayingFile?.path?.split('/').filter(p => p); 
+            pathParts?.pop(); 
+            nowPlayingPathEl.textContent = pathParts?.length > 0 ? pathParts.join(' / ') : ''; 
+            nowPlayingPathEl.title = currentPlayingFile?.path || ''; 
+            albumArtLoader.classList.remove('visible'); 
+            albumArtIcon.classList.remove('hidden'); 
+            
+            // Reset the image state
+            albumArtImg.classList.remove('loaded');
+            albumArtImg.classList.add('loading');
+            albumArtImg.removeAttribute('style'); // Remove any inline styles
+            albumArtImg.src = '';
+            
+            if (metadata?.picture && metadata.picture.data) { 
+                try { 
+                    const { data, format } = metadata.picture; 
+                    let base64String = ""; 
+                    const chunkSize = 8192; 
+                    for (let i = 0; i < data.length; i += chunkSize) 
+                        base64String += String.fromCharCode.apply(null, data.slice(i, i + chunkSize)); 
+                    const imageUrl = `data:${format};base64,${window.btoa(base64String)}`; 
+                    
+                    // Set up handlers before setting src
+                    albumArtImg.onload = function() {
+                        console.log("Album art loaded successfully");
+                        // Small delay to ensure browser has time to process
+                        setTimeout(() => {
+                            this.classList.remove('loading');
+                            this.classList.add('loaded');
+                            albumArtIcon.classList.add('hidden');
+                        }, 50);
+                    };
+                    
+                    albumArtImg.onerror = function() {
+                        console.error("Failed to load album art");
+                        this.classList.remove('loading');
+                        albumArtIcon.classList.remove('hidden');
+                    };
+                    
+                    // Set the source after handlers are ready
+                    albumArtImg.src = imageUrl;
+                } catch (e) { 
+                    console.error("Error processing album art:", e); 
+                    albumArtIcon.classList.remove('hidden'); 
+                } 
+            } else { 
+                console.log("No album art in metadata");
+                albumArtIcon.classList.remove('hidden'); 
+            } 
+        }
+        function updateFileDurationInList(filePath, durationSeconds) { if (currentLayoutMode !== 'list' || !durationSeconds || !isFinite(durationSeconds)) return; const durationStr = formatTime(durationSeconds); const escapedPath = CSS.escape(filePath); const durationElement = fileBrowserContainerEl.querySelector(`.file-duration-list[data-path="${escapedPath}"]`); if (durationElement && durationElement.textContent !== durationStr) durationElement.textContent = durationStr; }
 
         // --- Caching (No changes needed) ---
         function manageCache(filePath, data) { if (audioCache.size >= MAX_CACHE_SIZE) { const oldestPath = cacheOrder.shift(); if (oldestPath) audioCache.delete(oldestPath); } audioCache.set(filePath, { ...data, timestamp: Date.now() }); cacheOrder.push(filePath); }
@@ -782,8 +863,20 @@
         async function playAudioFile(file, contextTracklist) {
             if (!file || !file.isAudio) return;
             if (!audioContext) { setupAudioContext(); if(!audioContext) { alert("Audio not ready. Click page first."); return; } }
+            
+            // If it's the same file that's already playing and loaded, just toggle playback instead
+            if (currentPlayingFile?.path === file.path && isPlaying && currentAudioBuffer) {
+                togglePlayback();
+                return;
+            }
+            
             currentTracklist = contextTracklist || [];
-            if (currentPlayingFile?.path === file.path && isPlaying) return;
+            
+            // If we're just reloading the same file that's already loaded but not playing, just start playback
+            if (currentPlayingFile?.path === file.path && !isPlaying && currentAudioBuffer) {
+                startPlayback(0);
+                return;
+            }
 
             stopPlayback();
             currentPlayingFile = { ...file };
@@ -800,7 +893,7 @@
                 updatePrevNextButtons(); return;
             }
 
-            updatePlayerUI(true, 'Downloading...'); albumArtLoader.classList.add('visible'); albumArtIcon.classList.add('hidden'); albumArtImg.classList.remove('loaded'); albumArtImg.src = ''; albumArtImg.style.display = 'none';
+            updatePlayerUI(true, 'Downloading...'); albumArtLoader.classList.add('visible'); albumArtIcon.classList.add('hidden'); albumArtImg.classList.remove('loaded'); albumArtImg.src = ''; albumArtImg.removeAttribute('style');
 
             try {
                 const arrayBuffer = await fetchWithTimeoutAndRetry(`${archiveDownloadUrlBase}/${encodeURIComponent(file.path)}`, FETCH_TIMEOUT_MS, MAX_RETRIES, true);
@@ -817,12 +910,85 @@
                 displayMetadataInPlayer(tagsMetadata); startPlayback(0); updatePlayerUI(); updatePrevNextButtons(); updateFileDurationInList(file.path, currentAudioBuffer?.duration);
             } catch (error) {
                 console.error(`Error processing ${file.path}:`, error);
-                 if (currentPlayingFile && file.path === currentPlayingFile.path) { stopPlayback(true); displayStatus(`Error playing ${file.displayName || file.path}: ${error.message || 'Unknown error'}`, true); updatePlayerUI(false); }
-                 else console.warn("Error occurred for a file no longer targeted:", file.path);
-                 albumArtLoader.classList.remove('visible'); albumArtIcon.classList.remove('hidden');
+                
+                // Don't show error for aborted requests (when user clicked another song)
+                if (error.name === 'AbortError') {
+                    console.log(`Request for ${file.path} was aborted intentionally.`);
+                    // Only cleanup if this is still the current file (otherwise we might affect a new request)
+                    if (currentPlayingFile && file.path === currentPlayingFile.path) {
+                        cleanupPlaybackResources();
+                    }
+                } else {
+                    // Only show error if this is still the current file
+                    if (currentPlayingFile && file.path === currentPlayingFile.path) { 
+                        stopPlayback(true); 
+                        displayStatus(`Error playing ${file.displayName || file.path}: ${error.message || 'Unknown error'}`, true); 
+                        updatePlayerUI(false); 
+                    }
+                    else console.warn("Error occurred for a file no longer targeted:", file.path);
+                }
+                 
+                albumArtLoader.classList.remove('visible'); 
+                albumArtIcon.classList.remove('hidden');
             }
         }
-        async function fetchWithTimeoutAndRetry(url, timeout, retries, isForPlayback = false) { let attempts = 0; let currentFetchController = null; if (isForPlayback) { if (fetchAbortController) fetchAbortController.abort("New playback fetch"); fetchAbortController = new AbortController(); currentFetchController = fetchAbortController; } else { currentFetchController = new AbortController(); } const { signal } = currentFetchController; while (attempts <= retries) { attempts++; const timeoutId = setTimeout(() => currentFetchController.abort("Timeout"), timeout); try { if (attempts > 1) { console.log(`Retrying fetch ${url} (${attempts})...`); if (isForPlayback) updatePlayerUI(true, `Retrying (${attempts}/${retries})...`); await new Promise(resolve => setTimeout(resolve, 500 * attempts)); } const response = await fetch(url, { signal }); clearTimeout(timeoutId); if (!response.ok) throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`); if (signal.aborted) throw new Error(`Aborted before body: ${signal.reason}`); const arrayBuffer = await response.arrayBuffer(); if (signal.aborted) throw new Error(`Aborted after body: ${signal.reason}`); if (isForPlayback && currentFetchController === fetchAbortController) fetchAbortController = null; return arrayBuffer; } catch (error) { clearTimeout(timeoutId); if (error.name === 'AbortError') { console.warn(`Fetch aborted ${url}: ${error.message}`); if (isForPlayback && currentFetchController === fetchAbortController) fetchAbortController = null; throw error; } else console.error(`Fetch error ${url} (Attempt ${attempts}):`, error); if (attempts > retries) { if (isForPlayback && currentFetchController === fetchAbortController) fetchAbortController = null; throw new Error(`Fetch failed ${url} after ${retries + 1} attempts: ${error.message}`); } } } throw new Error(`Fetch failed ${url} unexpectedly.`); }
+        async function fetchWithTimeoutAndRetry(url, timeout, retries, isForPlayback = false) { 
+            let attempts = 0; 
+            let currentFetchController = null; 
+            
+            if (isForPlayback) { 
+                if (fetchAbortController) {
+                    console.log("Aborting previous fetch for new playback request");
+                    fetchAbortController.abort("New playback fetch"); 
+                }
+                fetchAbortController = new AbortController(); 
+                currentFetchController = fetchAbortController; 
+            } else { 
+                currentFetchController = new AbortController(); 
+            } 
+            
+            const { signal } = currentFetchController; 
+            
+            while (attempts <= retries) { 
+                attempts++; 
+                const timeoutId = setTimeout(() => currentFetchController.abort("Timeout"), timeout); 
+                
+                try { 
+                    if (attempts > 1) { 
+                        console.log(`Retrying fetch ${url} (${attempts})...`); 
+                        if (isForPlayback) updatePlayerUI(true, `Retrying (${attempts}/${retries})...`); 
+                        await new Promise(resolve => setTimeout(resolve, 500 * attempts)); 
+                    } 
+                    
+                    const response = await fetch(url, { signal }); 
+                    clearTimeout(timeoutId); 
+                    
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`); 
+                    if (signal.aborted) throw new Error(`Aborted before body: ${signal.reason}`); 
+                    
+                    const arrayBuffer = await response.arrayBuffer(); 
+                    if (signal.aborted) throw new Error(`Aborted after body: ${signal.reason}`); 
+                    
+                    if (isForPlayback && currentFetchController === fetchAbortController) fetchAbortController = null; 
+                    return arrayBuffer; 
+                } catch (error) { 
+                    clearTimeout(timeoutId); 
+                    
+                    if (error.name === 'AbortError') { 
+                        console.warn(`Fetch aborted ${url}: ${error.message}`); 
+                        if (isForPlayback && currentFetchController === fetchAbortController) fetchAbortController = null; 
+                        throw error; 
+                    } else console.error(`Fetch error ${url} (Attempt ${attempts}):`, error); 
+                    
+                    if (attempts > retries) { 
+                        if (isForPlayback && currentFetchController === fetchAbortController) fetchAbortController = null; 
+                        throw new Error(`Fetch failed ${url} after ${retries + 1} attempts: ${error.message}`); 
+                    } 
+                } 
+            } 
+            
+            throw new Error(`Fetch failed ${url} unexpectedly.`); 
+        }
         function cleanupPlaybackResources() { clearInterval(progressUpdateInterval); progressUpdateInterval = null; if (sourceNode) { try { sourceNode.onended = null; sourceNode.disconnect(); if (isPlaying || audioContext?.state === 'running') sourceNode.stop(); } catch (e) {} sourceNode = null; } if (fetchAbortController) { fetchAbortController.abort("Playback stopped/changed"); fetchAbortController = null; } }
         function startPlayback(offset = 0) { if (!currentAudioBuffer || !audioContext || !gainNode) { stopPlayback(true); return; } if (audioContext.state === 'suspended') audioContext.resume().then(() => _performStartPlayback(offset)).catch(err => { stopPlayback(true); }); else _performStartPlayback(offset); }
 
@@ -877,7 +1043,6 @@
             else { albumArtLoader.classList.remove('visible'); albumArtImg.classList.remove('loaded'); albumArtImg.src = ''; albumArtImg.style.display = 'none'; albumArtIcon.classList.remove('hidden'); nowPlayingEl.textContent = 'Not playing'; nowPlayingEl.title = 'Not playing'; nowPlayingArtistAlbumEl.textContent = 'Select an MP3 file'; nowPlayingArtistAlbumEl.title = 'Select an MP3 file'; nowPlayingPathEl.textContent = ''; if (playPauseIcon) playPauseIcon.className = 'fas fa-play'; playPauseBtn.disabled = true; pitchSlider.disabled = true; downloadBtn.disabled = true; prevBtn.disabled = true; nextBtn.disabled = true; durationEl.textContent = '0:00'; currentTimeEl.textContent = '0:00'; progressBar.style.width = '0%'; miniProgressBar.style.setProperty('--progress-width', `0%`); }
         }
         function updateProgress() { if (!audioContext || !currentAudioBuffer || !isFinite(currentAudioBuffer.duration)) { currentTimeEl.textContent = '0:00'; progressBar.style.width = '0%'; miniProgressBar.style.setProperty('--progress-width', `0%`); return; } const currentPosition = getCurrentPlaybackTime(); const duration = currentAudioBuffer.duration; currentTimeEl.textContent = formatTime(currentPosition); if(durationEl.textContent === '--:--' || durationEl.textContent === '0:00') durationEl.textContent = formatTime(duration); const progressPercent = (duration > 0) ? (currentPosition / duration) * 100 : 0; const progressWidth = `${Math.min(100, Math.max(0, progressPercent))}%`; if (progressBar.style.width !== progressWidth) progressBar.style.width = progressWidth; if (miniProgressBar.style.getPropertyValue('--progress-width') !== progressWidth) miniProgressBar.style.setProperty('--progress-width', progressWidth); }
-        function updateFileDurationInList(filePath, durationSeconds) { if (currentLayoutMode !== 'list' || !durationSeconds || !isFinite(durationSeconds)) return; const durationStr = formatTime(durationSeconds); const escapedPath = CSS.escape(filePath); const durationElement = fileBrowserContainerEl.querySelector(`.file-duration-list[data-path="${escapedPath}"]`); if (durationElement && durationElement.textContent !== durationStr) durationElement.textContent = durationStr; }
         function updateVolumeIcon(volume) { if (!volumeIcon) return; if (volume <= 0) volumeIcon.className = 'fas fa-volume-mute'; else if (volume < 0.5) volumeIcon.className = 'fas fa-volume-down'; else volumeIcon.className = 'fas fa-volume-up'; }
         function updatePrevNextButtons() { const canNavigate = currentTracklist && currentTracklist.length > 0 && currentTrackIndex !== -1; prevBtn.disabled = !canNavigate; nextBtn.disabled = !canNavigate; }
 
