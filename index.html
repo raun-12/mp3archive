@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MP3 Archive Streamer</title>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <!-- jsmediatags Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
     <style>
@@ -14,10 +16,10 @@
             --bg-tertiary: #282828;
             --text-primary: #ffffff;
             --text-secondary: #b3b3b3;
-            --accent-color: #ff375f;
+            --accent-color: #ff375f; /* Pinkish-red */
             --accent-hover: #ff5375;
             --progress-bar: #535353;
-            --progress-filled: #ff375f;
+            --progress-filled: var(--accent-color);
             --volume-track: #535353;
             --volume-thumb: #ffffff;
             --border-color: #2a2a2a;
@@ -30,6 +32,11 @@
             --skeleton-bg: #2a2a2a;
             --skeleton-highlight: #383838;
             --list-item-hover: var(--bg-tertiary);
+            --icon-color-default: var(--text-secondary);
+            --icon-color-accent: var(--accent-color);
+            --icon-color-container: #77aaff; /* Blue for folder/artist/album */
+            --download-progress-bg: rgba(255, 255, 255, 0.2);
+            --download-progress-fill: var(--accent-color);
         }
 
         /* --- Base Styles --- */
@@ -37,8 +44,7 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             line-height: 1.6;
             margin: 0;
-            /* Adjusted padding-bottom dynamically via JS if needed */
-            padding: 0 0 150px 0;
+            padding: 0 0 90px 0; /* Default desktop player height */
             background-color: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100vh;
@@ -51,169 +57,174 @@
             padding: 20px;
         }
 
-        /* --- Header --- */
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px 0; /* Reduced padding */
-            border-bottom: 1px solid var(--border-color);
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-            gap: 15px;
+        /* --- Font Awesome Icon Adjustments --- */
+        i.fas, i.far, i.fab {
+            vertical-align: middle;
+            line-height: 1;
         }
-        .header h1 { margin: 0; font-size: 1.8rem; /* Slightly smaller */ /* ... rest */ background: linear-gradient(90deg, #ff375f, #ff6b8b); -webkit-background-clip: text; background-clip: text; color: transparent; flex-shrink: 0; order: 1; }
-        .search-area { display: flex; align-items: center; gap: 10px; flex-grow: 1; justify-content: flex-end; order: 3; /* Moved search to end */ }
-        .header-icon-button { background: none; border: none; color: var(--text-primary); font-size: 1.3rem; cursor: pointer; padding: 8px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: background-color 0.2s; flex-shrink: 0; line-height: 1; }
+
+        /* --- Header --- */
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 15px; flex-wrap: wrap; gap: 15px; }
+        .header h1 { margin: 0; font-size: 1.8rem; background: linear-gradient(90deg, var(--accent-color), var(--accent-hover)); -webkit-background-clip: text; background-clip: text; color: transparent; flex-shrink: 0; order: 1; }
+        .search-area { display: flex; align-items: center; gap: 10px; flex-grow: 1; justify-content: flex-end; order: 3; }
+        .header-icon-button { background: none; border: none; color: var(--text-primary); font-size: 1.2rem; cursor: pointer; padding: 8px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: background-color 0.2s; flex-shrink: 0; line-height: 1; }
+        .header-icon-button i { font-size: inherit; }
         .header-icon-button:hover { background-color: var(--button-bg-hover); }
         .search-container { position: relative; width: 0; opacity: 0; transition: width 0.3s ease, opacity 0.3s ease; overflow: hidden; visibility: hidden; max-width: 300px; }
         .search-container.active { width: 100%; opacity: 1; visibility: visible; }
         #search-box { width: 100%; padding: 10px 15px 10px 40px; border: none; border-radius: 20px; background-color: var(--bg-tertiary); color: var(--text-primary); font-size: 0.9rem; outline: none; box-sizing: border-box; }
-        .search-icon-input { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); pointer-events: none; }
-
-        /* --- Main View Toggle Buttons --- */
-        .main-view-toggle {
-             order: 2; /* Position between title and search */
-             display: flex;
-             gap: 5px;
-             background-color: var(--bg-tertiary);
-             padding: 4px;
-             border-radius: 6px;
-             flex-shrink: 0;
-        }
-        .main-view-btn {
-            background: none; border: none; color: var(--text-secondary); font-size: 0.85rem; font-weight: 500; cursor: pointer; padding: 4px 10px; border-radius: 4px; transition: background-color 0.2s, color 0.2s; line-height: 1.2;
-        }
+        .search-icon-input { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); pointer-events: none; font-size: 1rem; }
+        .main-view-toggle { order: 2; display: flex; gap: 5px; background-color: var(--bg-tertiary); padding: 4px; border-radius: 6px; flex-shrink: 0; }
+        .main-view-btn { background: none; border: none; color: var(--text-secondary); font-size: 0.85rem; font-weight: 500; cursor: pointer; padding: 4px 10px; border-radius: 4px; transition: background-color 0.2s, color 0.2s; line-height: 1.2; }
         .main-view-btn:hover { color: var(--text-primary); }
         .main-view-btn.active { background-color: var(--bg-secondary); color: var(--text-primary); box-shadow: inset 0 1px 2px rgba(0,0,0,0.3); }
 
+        /* --- Controls Bar --- */
+        .controls-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; min-height: 30px; }
+        .directory-container { overflow-x: auto; white-space: nowrap; padding-bottom: 5px; flex-grow: 1; min-width: 200px; scrollbar-width: thin; scrollbar-color: var(--bg-tertiary) var(--bg-primary); }
+        .directory-container::-webkit-scrollbar { height: 6px; }
+        .directory-container::-webkit-scrollbar-track { background: var(--bg-primary); }
+        .directory-container::-webkit-scrollbar-thumb { background-color: var(--bg-tertiary); border-radius: 3px; }
+        .directory-path { display: inline-flex; gap: 5px; align-items: center; }
+        .directory-crumb { color: var(--text-secondary); font-size: 0.9rem; cursor: pointer; transition: color 0.2s, background-color 0.2s; padding: 2px 4px; border-radius: 3px; }
+        .directory-crumb:hover { color: var(--text-primary); background-color: var(--bg-tertiary); text-decoration: none; }
+        .directory-crumb.current { color: var(--text-primary); font-weight: 500; cursor: default; }
+        .directory-crumb.current:hover { background-color: transparent; }
+        .directory-separator { color: var(--text-secondary); font-size: 0.9rem; margin: 0 2px; }
+        .view-toggle-buttons { display: flex; gap: 5px; background-color: var(--bg-tertiary); padding: 4px; border-radius: 6px; flex-shrink: 0; }
+        .view-toggle-btn { background: none; border: none; color: var(--text-secondary); font-size: 1.1rem; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: background-color 0.2s, color 0.2s; line-height: 1; }
+        .view-toggle-btn i { font-size: inherit; }
+        .view-toggle-btn:hover { color: var(--text-primary); }
+        .view-toggle-btn.active { background-color: var(--bg-secondary); color: var(--text-primary); box-shadow: inset 0 1px 2px rgba(0,0,0,0.3); }
 
-        /* --- Controls Bar (Breadcrumbs / Grid-List Toggle) --- */
-         .controls-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; min-height: 30px; /* Ensure space even if empty */ }
-         .directory-container { overflow-x: auto; white-space: nowrap; padding-bottom: 5px; flex-grow: 1; min-width: 200px; }
-         .directory-path { display: inline-flex; gap: 5px; align-items: center; }
-         .directory-crumb { color: var(--text-secondary); font-size: 0.9rem; cursor: pointer; transition: color 0.2s, background-color 0.2s; padding: 2px 4px; border-radius: 3px; }
-         .directory-crumb:hover { color: var(--text-primary); background-color: var(--bg-tertiary); text-decoration: none; }
-         .directory-crumb.current { color: var(--text-primary); font-weight: 500; cursor: default; }
-         .directory-crumb.current:hover { background-color: transparent; }
-         .directory-separator { color: var(--text-secondary); font-size: 0.9rem; margin: 0 2px; }
-         .view-toggle-buttons { display: flex; gap: 5px; background-color: var(--bg-tertiary); padding: 4px; border-radius: 6px; flex-shrink: 0; }
-         .view-toggle-btn { background: none; border: none; color: var(--text-secondary); font-size: 1.1rem; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: background-color 0.2s, color 0.2s; line-height: 1; }
-         .view-toggle-btn:hover { color: var(--text-primary); }
-         .view-toggle-btn.active { background-color: var(--bg-secondary); color: var(--text-primary); box-shadow: inset 0 1px 2px rgba(0,0,0,0.3); }
-
-
-        /* --- Skeleton Loader Styles --- */
+        /* --- Skeleton Loaders --- */
         .skeleton { background-color: var(--bg-secondary); border-color: var(--border-color); pointer-events: none; position: relative; overflow: hidden; }
         .skeleton::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, var(--skeleton-highlight), transparent); animation: skeleton-shine 1.5s infinite linear; }
         @keyframes skeleton-shine { 0% { left: -100%; } 100% { left: 100%; } }
-        /* Grid Skeleton Item */
         .file-item-grid.skeleton { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 15px; border-radius: 8px; border: 1px solid transparent; }
         .skeleton-icon { width: 40px; height: 40px; background-color: var(--skeleton-bg); border-radius: 4px; margin-bottom: 12px; }
         .skeleton-text { width: 80%; height: 1em; background-color: var(--skeleton-bg); border-radius: 3px; margin-bottom: 8px; }
         .skeleton-text.short { width: 50%; height: 0.8em; }
-        /* List Skeleton Item */
         .file-item-list.skeleton { height: 45px; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 5px; }
         .file-browser-list .skeleton-icon { width: 20px; height: 20px; margin-bottom: 0; flex-shrink: 0; }
         .file-browser-list .skeleton-text { height: 0.9em; margin-bottom: 0; flex-grow: 1; }
         .file-browser-list .skeleton-text.short { width: 50px; flex-grow: 0; flex-shrink: 0; margin-left: auto; }
 
-
-        /* --- Generic Browser Container --- */
+        /* --- File Browser Container --- */
         #file-browser-container { margin-top: 10px; }
 
-        /* --- File Browser (Grid View) --- */
+        /* --- Individual Download Button --- */
+        .track-download-btn { background: none; border: none; color: var(--icon-color-default); font-size: 1.1rem; cursor: pointer; padding: 4px; border-radius: 50%; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; transition: background-color 0.2s, color 0.2s; line-height: 1; flex-shrink: 0; position: relative; }
+        .track-download-btn:hover:not(:disabled) { background-color: var(--button-bg-hover); color: var(--text-primary); }
+        .track-download-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .track-download-btn .btn-icon { transition: opacity 0.2s; }
+        .track-download-btn .btn-loader { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 16px; height: 16px; border-width: 2px; display: none; border-color: rgba(255, 255, 255, 0.3); border-top-color: var(--text-primary); animation: spin 0.8s linear infinite; }
+        .track-download-btn .download-progress { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.6rem; font-weight: bold; color: var(--text-primary); display: none; line-height: 1; }
+        .track-download-btn.loading .btn-icon { opacity: 0; pointer-events: none; }
+        .track-download-btn.loading .btn-loader { display: inline-block; }
+        .track-download-btn.loading .download-progress { display: block; }
+
+        /* --- Grid View --- */
         .file-browser-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
-        .file-item-grid { background-color: var(--bg-secondary); border-radius: 8px; padding: 15px; cursor: pointer; transition: all 0.2s ease-in-out; border: 1px solid var(--border-color); overflow: hidden; display: flex; flex-direction: column; align-items: center; text-align: center; }
+        .file-item-grid { background-color: var(--bg-secondary); border-radius: 8px; padding: 15px; cursor: pointer; transition: all 0.2s ease-in-out; border: 1px solid var(--border-color); overflow: hidden; display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; }
         .file-item-grid:hover { background-color: var(--list-item-hover); transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); }
-        .file-icon-grid { font-size: 2.5rem; margin-bottom: 12px; color: var(--accent-color); line-height: 1; }
-        .file-icon-grid.folder, .file-icon-grid.artist, .file-icon-grid.album { color: #77aaff; } /* Blue for containers */
+        .file-icon-grid { font-size: 2.5rem; margin-bottom: 12px; color: var(--icon-color-accent); line-height: 1; }
+        .file-icon-grid.folder { color: var(--icon-color-container); }
         .file-name-grid { font-size: 0.9rem; font-weight: 500; white-space: normal; overflow-wrap: break-word; word-break: break-all; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; margin-bottom: 5px; max-height: calc(1.3em * 3); }
         .file-info-grid { font-size: 0.75rem; color: var(--text-secondary); margin-top: auto; }
+        .file-item-grid .track-download-btn { position: absolute; bottom: 8px; right: 8px; background-color: rgba(0,0,0,0.3); backdrop-filter: blur(2px); font-size: 0.9rem; width: 24px; height: 24px; }
 
-
-         /* --- File Browser (List View) --- */
+         /* --- List View --- */
          .file-browser-list { display: flex; flex-direction: column; gap: 2px; }
-         .file-item-list { display: flex; align-items: center; padding: 10px 12px; background-color: var(--bg-secondary); border-radius: 5px; cursor: pointer; transition: background-color 0.2s ease-in-out; border: 1px solid transparent; gap: 12px; }
+         .file-item-list { display: flex; align-items: center; padding: 10px 12px; background-color: var(--bg-secondary); border-radius: 5px; cursor: default; transition: background-color 0.2s ease-in-out; border: 1px solid transparent; gap: 12px; }
          .file-item-list:hover { background-color: var(--list-item-hover); border-color: var(--border-color); }
          .file-item-list.non-interactive { cursor: default; opacity: 0.6; }
          .file-item-list.non-interactive:hover { background-color: var(--bg-secondary); border-color: transparent; }
-         .file-icon-list { font-size: 1.2rem; color: var(--accent-color); line-height: 1; width: 20px; text-align: center; flex-shrink: 0; }
-         .file-icon-list.folder, .file-icon-list.artist, .file-icon-list.album { color: #77aaff; } /* Blue for containers */
-         .file-name-list { font-size: 0.95rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-grow: 1; line-height: 1.3; }
-         .file-info-list { display: flex; justify-content: flex-end; gap: 10px; min-width: 100px; text-align: right; flex-shrink: 0; }
+         .file-icon-list { font-size: 1.2rem; color: var(--icon-color-accent); line-height: 1; width: 20px; text-align: center; flex-shrink: 0; }
+         .file-icon-list.folder { color: var(--icon-color-container); }
+         .file-name-list { font-size: 0.95rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-grow: 1; line-height: 1.3; cursor: pointer; }
+         .file-item-list.non-interactive .file-name-list { cursor: default; }
+         .file-info-list { display: flex; align-items: center; justify-content: flex-end; gap: 10px; min-width: 100px; text-align: right; flex-shrink: 0; }
          .file-duration-list { font-size: 0.8rem; color: var(--text-secondary); width: 45px; text-align: right; flex-shrink: 0; }
          .file-size-list { font-size: 0.8rem; color: var(--text-secondary); min-width: 55px; text-align: right; flex-shrink: 0; }
-         .file-item-count { /* For artist/album info */ font-size: 0.8rem; color: var(--text-secondary); margin-left: auto; /* Push to right */ flex-shrink: 0; padding-left: 15px; }
+         .file-item-count { font-size: 0.8rem; color: var(--text-secondary); margin-left: auto; flex-shrink: 0; padding-left: 15px; }
+         .file-item-list .track-download-btn { margin-left: 8px; }
 
+        /* --- Player Section (Base Desktop Layout) --- */
+        #player-section { position: fixed; bottom: 0; left: 0; width: 100%; background-color: rgba(30, 30, 30, 0.9); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 0; box-shadow: var(--player-shadow); border-top: 1px solid var(--border-color); z-index: 100; transition: height 0.3s ease, transform 0.3s ease; height: 90px; overflow: hidden; }
+        .player-content-wrapper { display: flex; align-items: center; justify-content: space-between; width: 100%; height: 100%; gap: 20px; /* Increased gap */ transition: opacity 0.3s ease; padding: 0 20px; /* Padding on sides only */ box-sizing: border-box; }
 
-        /* --- Player Section --- */
-        #player-section { position: fixed; bottom: 0; left: 0; width: 100%; background-color: rgba(30, 30, 30, 0.9); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 0; /* Padding removed, handled by wrapper */ box-shadow: var(--player-shadow); border-top: 1px solid var(--border-color); z-index: 100; transition: height 0.3s ease, transform 0.3s ease; height: 90px; overflow: hidden; }
-        .player-toggle-button { position: absolute; top: -25px; left: 50%; transform: translateX(-50%); background-color: rgba(40, 40, 40, 0.9); border: 1px solid var(--border-color); border-bottom: none; color: var(--text-secondary); width: 50px; height: 25px; border-radius: 8px 8px 0 0; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; z-index: 101; transition: background-color 0.2s; padding: 0; display: none; /* Hidden on desktop by default */ }
-        .player-toggle-button:hover { background-color: var(--bg-tertiary); color: var(--text-primary); }
-        .player-toggle-button .toggle-icon { transition: transform 0.3s ease; }
-        .mini-progress { position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background-color: var(--progress-bar); display: none; z-index: 102; pointer-events: none; }
-        .mini-progress::after { content: ''; position: absolute; left: 0; top: 0; height: 100%; background-color: var(--progress-filled); width: var(--progress-width, 0%); /* Use CSS var */ transition: width 0.1s linear; }
-        .player-content-wrapper { display: flex; align-items: center; justify-content: space-between; width: 100%; height: 100%; gap: 15px; transition: opacity 0.3s ease; padding: 15px 20px; /* Padding applied here */ box-sizing: border-box; }
-        .player-info { display: flex; align-items: center; gap: 15px; width: 25%; min-width: 150px; overflow: hidden; }
-        .player-album-art { position: relative; width: 50px; height: 50px; background-color: var(--bg-tertiary); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0; color: var(--accent-color); overflow: hidden; }
+        /* Player Info (Left) */
+        .player-info { display: flex; align-items: center; gap: 15px; flex-basis: 25%; /* Base width */ flex-shrink: 1; /* Allow shrinking */ min-width: 180px; /* Minimum width */ overflow: hidden; order: 1; } /* Desktop order */
+        .player-album-art { position: relative; width: 55px; height: 55px; /* Slightly larger on desktop */ background-color: var(--bg-tertiary); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; flex-shrink: 0; color: var(--icon-color-accent); overflow: hidden; }
         .player-album-art img { display: block; width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; opacity: 0; transition: opacity 0.3s ease; }
         .player-album-art img.loaded { opacity: 1; }
         .player-album-art #album-art-icon { position: relative; z-index: 1; transition: opacity 0.3s ease; }
         .player-album-art #album-art-icon.hidden { opacity: 0; }
-        .player-album-art .loader-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); display: none; /* Hidden by default */ align-items: center; justify-content: center; z-index: 2; }
+        .player-album-art .loader-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; z-index: 2; }
         .player-album-art .loader-overlay.visible { display: flex; }
         .player-album-art .loader-overlay .loader { margin: 0; }
         .player-text { min-width: 0; overflow: hidden; }
         .player-title { font-size: 0.95rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
-        .player-subtitle { /* Artist - Album */ font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
-        .player-subtitle-small { /* Path */ font-size: 0.7rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.8; margin-top: 2px; }
-        .player-controls { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 50%; max-width: 500px; }
+        .player-subtitle { font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+        .player-subtitle-small { font-size: 0.7rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.8; margin-top: 2px; display: none; /* Hidden by default, maybe show on hover? */ }
+
+        /* Player Controls (Center) */
+        .player-controls { display: flex; flex-direction: column; align-items: center; gap: 8px; flex-grow: 1; /* Takes up remaining space */ flex-basis: 40%; /* Suggests taking ~40% initially */ max-width: 550px; /* Max width for controls */ order: 2; } /* Desktop order */
         .player-buttons { display: flex; align-items: center; gap: 15px; }
         .player-button { background: none; border: none; color: var(--text-primary); font-size: 1.2rem; cursor: pointer; padding: 5px; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; line-height: 1; position: relative; }
+        .player-button i { font-size: inherit; line-height: inherit; }
         .player-button:disabled { opacity: 0.4; cursor: not-allowed; }
         .player-button:not(:disabled):hover { background-color: var(--button-bg-hover); }
         #download-btn { font-size: 1.1rem; }
-        #download-btn .btn-loader { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 18px; height: 18px; border-width: 2px; display: none; }
+        #download-btn .btn-loader { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 18px; height: 18px; border-width: 2px; display: none; animation: spin 0.8s linear infinite; }
         #download-btn.loading .btn-icon { visibility: hidden; }
         #download-btn.loading .btn-loader { display: inline-block; }
         .play-pause-btn { background-color: var(--accent-color); width: 44px; height: 44px; }
         .play-pause-btn:not(:disabled):hover { background-color: var(--accent-hover); transform: scale(1.05); }
+        .play-pause-btn .fa-play, .play-pause-btn .fa-pause, .play-pause-btn .fa-spinner { font-size: 1.3rem; }
         .progress-container { width: 100%; display: flex; align-items: center; gap: 10px; }
         .progress-time { font-size: 0.75rem; color: var(--text-secondary); min-width: 40px; text-align: center; }
         .progress-bar-wrapper { flex-grow: 1; height: 12px; display: flex; align-items: center; cursor: pointer; padding: 4px 0; }
         .progress-bar-container { width: 100%; height: 4px; background-color: var(--progress-bar); border-radius: 2px; overflow: hidden; position: relative; }
         .progress-bar { height: 100%; background-color: var(--progress-filled); border-radius: 2px; width: 0%; position: absolute; left: 0; top: 0; transition: width 0.1s linear;}
         .progress-bar-wrapper:hover .progress-bar { background-color: var(--accent-hover); }
-        .player-extras { display: flex; align-items: center; gap: 10px; width: 25%; justify-content: flex-end; min-width: 150px; flex-wrap: wrap; }
-        .pitch-control, .volume-control { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+
+        /* Player Extras (Right) */
+        .player-extras { display: flex; align-items: center; gap: 15px; /* More gap */ flex-basis: 25%; /* Base width */ flex-shrink: 1; /* Allow shrinking */ justify-content: flex-end; min-width: 180px; /* Minimum width */ order: 3; } /* Desktop order */
+        .pitch-control, .volume-control { display: flex; align-items: center; gap: 8px; } /* Removed min-width, let them size */
         .control-label { font-size: 0.8rem; color: var(--text-secondary); min-width: 35px; text-align: right; }
-        .control-slider { width: 70px; height: 4px; appearance: none; background-color: var(--volume-track); border-radius: 2px; outline: none; cursor: pointer; transition: background-color 0.2s; }
+        .control-slider { width: 80px; /* Slightly wider slider */ height: 4px; appearance: none; background-color: var(--volume-track); border-radius: 2px; outline: none; cursor: pointer; transition: background-color 0.2s; }
         .control-slider:hover { background-color: #6a6a6a; }
         .control-slider::-webkit-slider-thumb { appearance: none; width: 12px; height: 12px; background: var(--volume-thumb); border-radius: 50%; cursor: pointer; transition: transform 0.1s; }
         .control-slider:active::-webkit-slider-thumb { transform: scale(1.2); }
         .control-slider::-moz-range-thumb { width: 12px; height: 12px; background: var(--volume-thumb); border-radius: 50%; cursor: pointer; border: none; }
         .volume-icon { color: var(--text-secondary); font-size: 1rem; width: 20px; text-align: center; }
+        .volume-icon i { font-size: inherit; }
 
-        /* Minimized Player State */
-        #player-section.minimized { height: 35px; padding: 0; }
+
+        /* --- Minimized Player State --- */
+        #player-section.minimized { height: 35px; }
         #player-section.minimized .player-content-wrapper { opacity: 0; pointer-events: none; }
         #player-section.minimized .mini-progress { display: block; }
-        #player-section.minimized .player-info { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; padding: 0 15px; background-color: rgba(30, 30, 30, 0.9); opacity: 1; pointer-events: auto; z-index: 101; }
+        #player-section.minimized .player-info { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; padding: 0 15px; background-color: rgba(30, 30, 30, 0.9); opacity: 1; pointer-events: auto; z-index: 101; flex-basis: auto; /* Override desktop basis */ }
         #player-section.minimized .player-album-art { display: none; }
         #player-section.minimized .player-text { flex-grow: 1; }
-        #player-section.minimized .player-title { font-size: 0.9rem; }
+        #player-section.minimized .player-title { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         #player-section.minimized .player-subtitle, #player-section.minimized .player-subtitle-small { display: none; }
         #player-section.minimized .player-toggle-button .toggle-icon { transform: rotate(180deg); }
+        .player-toggle-button { position: absolute; top: -25px; left: 50%; transform: translateX(-50%); background-color: rgba(40, 40, 40, 0.9); border: 1px solid var(--border-color); border-bottom: none; color: var(--text-secondary); width: 50px; height: 25px; border-radius: 8px 8px 0 0; cursor: pointer; display: none; /* Hidden by default */ align-items: center; justify-content: center; font-size: 1rem; z-index: 101; transition: background-color 0.2s; padding: 0; }
+        .player-toggle-button:hover { background-color: var(--bg-tertiary); color: var(--text-primary); }
+        .player-toggle-button .toggle-icon { transition: transform 0.3s ease; }
+        .mini-progress { position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background-color: var(--progress-bar); display: none; z-index: 102; pointer-events: none; }
+        .mini-progress::after { content: ''; position: absolute; left: 0; top: 0; height: 100%; background-color: var(--progress-filled); width: var(--progress-width, 0%); transition: width 0.1s linear; }
 
-        /* --- Status Messages --- */
+        /* --- Status Messages & Loader --- */
         .status-message { text-align: center; padding: 30px 20px; color: var(--text-secondary); font-size: 1rem; border-radius: 8px; background-color: var(--bg-secondary); margin-top: 20px; border: 1px dashed var(--border-color); display: none; }
         .status-message.visible { display: block; }
         .status-message .loader { margin-right: 10px; }
-
-        /* --- Loader --- */
         .loader { display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(255, 255, 255, 0.2); border-radius: 50%; border-top-color: var(--accent-color); animation: spin 0.8s ease-in-out infinite; vertical-align: middle; }
-        .btn-loader { width: 16px; height: 16px; border: 2px solid rgba(255, 255, 255, 0.3); border-top-color: var(--text-primary); }
+        .btn-loader { width: 16px; height: 16px; border: 2px solid rgba(255, 255, 255, 0.3); border-top-color: var(--text-primary); animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
          /* --- Search Hint Popup --- */
@@ -222,98 +233,141 @@
          #close-hint-btn { background: none; border: none; color: var(--text-secondary); font-size: 1.2rem; cursor: pointer; padding: 0 5px; line-height: 1; margin-left: 5px; }
          #close-hint-btn:hover { color: var(--text-primary); }
 
+        /* --- Responsive Player Layout --- */
 
-        /* --- Responsive Design --- */
         @media (max-width: 900px) {
-            .player-info, .player-extras { width: auto; flex-grow: 1; }
-            .player-controls { width: auto; flex-grow: 2; }
-            .player-extras { justify-content: center; }
-            .search-area { min-width: 150px; }
-            .header h1 { font-size: 1.6rem; }
+             /* Tablet - slightly adjust spacing, allow wrapping if needed */
+             .player-content-wrapper { gap: 15px; }
+             .player-info { flex-basis: 30%; min-width: 160px; }
+             .player-controls { flex-basis: 35%; max-width: 450px; }
+             .player-extras { flex-basis: 25%; justify-content: flex-end; min-width: 160px; }
         }
+
         @media (max-width: 768px) {
-            body { padding-bottom: calc(180px + 25px); } /* Initial mobile player height + toggle */
-            .header { flex-direction: row; align-items: center; gap: 10px; }
-            .header h1 { order: 1; flex-grow: 0; font-size: 1.5rem; }
-            .main-view-toggle { order: 2; }
-            .search-area { order: 3; flex-grow: 1; justify-content: flex-end; max-width: none; }
-            .search-container.active { flex-grow: 1; max-width: none; }
-            .file-browser-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
-            .file-name-list { font-size: 0.9rem; }
-            .file-info-list { font-size: 0.75rem; min-width: 90px; }
-            #player-section { flex-direction: column; padding: 0; height: 180px; } /* Mobile default height */
+            /* Mobile View - Multi-row Layout */
+            body { padding-bottom: calc(180px + 25px); } /* Player: ~180px + Toggle: 25px */
+
+            #player-section { height: 180px; }
             #player-section.minimized { height: 35px; }
-            #player-section .player-content-wrapper { flex-direction: column; padding: 10px; gap: 10px; }
-            .player-info, .player-controls, .player-extras { width: 100%; max-width: none; }
-            .player-info { justify-content: flex-start; text-align: left; width: 100%; }
-            .player-extras { justify-content: space-around; gap: 15px; padding-top: 5px; width: 100%; }
-            .pitch-control, .volume-control { flex-grow: 1; justify-content: center; min-width: 130px; }
-            .control-slider { width: 80px; }
-            .player-toggle-button { display: flex; } /* Show toggle */
+
+            .player-content-wrapper {
+                flex-direction: column; /* Stack rows vertically */
+                padding: 12px 15px; /* Adjust padding */
+                gap: 10px; /* Gap between rows */
+                justify-content: space-between; /* Distribute rows */
+                height: 100%;
+            }
+
+            /* Row 1: Info */
+            .player-info {
+                 order: 1; width: 100%; gap: 12px; min-height: 45px;
+                 flex-basis: auto; /* Override desktop basis */
+                 justify-content: flex-start; /* Align left */
+                 min-width: 0; /* Override desktop min-width */
+            }
+            .player-album-art { width: 45px; height: 45px; }
+            .player-text { flex-grow: 1; min-width: 0; text-align: left; }
+            .player-title, .player-subtitle, .player-subtitle-small { white-space: normal; overflow-wrap: break-word; display: block; line-height: 1.3; }
+            .player-title { font-size: 0.9rem; margin-bottom: 1px; }
+            .player-subtitle { font-size: 0.75rem; margin-bottom: 1px; }
+            .player-subtitle-small { font-size: 0.7rem; opacity: 0.7; display: block; } /* Show path on mobile */
+
+            /* Row 2: Progress */
+            .progress-container { order: 2; width: 100%; gap: 8px; }
+
+            /* Row 3: Buttons */
+            .player-controls {
+                 order: 3; width: 100%;
+                 flex-direction: row; /* Buttons in a row */
+                 justify-content: center; /* Center buttons */
+                 align-items: center;
+                 gap: 15px; /* Gap between buttons */
+                 flex-basis: auto; /* Override desktop basis */
+                 max-width: none; /* Override desktop max-width */
+            }
+            .player-controls .progress-container { display: none; } /* Hide desktop progress structure if still present */
+
+            /* Row 4: Extras */
+            .player-extras {
+                 order: 4; width: 100%;
+                 justify-content: space-evenly; /* Space out sliders */
+                 flex-wrap: wrap; /* Allow wrapping */
+                 gap: 10px 15px; /* Row gap, Column gap */
+                 padding-top: 0;
+                 align-items: center;
+                 flex-basis: auto; /* Override desktop basis */
+                 min-width: 0; /* Override desktop min-width */
+            }
+            .pitch-control, .volume-control {
+                 flex-basis: auto; flex-grow: 1; /* Allow to grow */
+                 min-width: 130px; /* Min width for sliders */
+                 justify-content: center;
+            }
+            .control-slider { width: 100px; }
+
+            .player-toggle-button { display: flex; } /* Show mobile toggle */
         }
+
          @media (max-width: 480px) {
-             body { padding-bottom: calc(190px + 25px); }
-             .header { gap: 5px; padding: 10px 0; }
-             .header h1 { font-size: 1.3rem; }
-             .main-view-btn { font-size: 0.8rem; padding: 4px 8px;}
-             .header-icon-button { width: 36px; height: 36px; font-size: 1.1rem; padding: 6px; }
-             #search-box { padding-left: 35px; font-size: 0.85rem; }
-             .search-icon-input { left: 12px; }
-             .file-browser-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
-             .file-item-grid { padding: 10px; }
-             .file-icon-grid { font-size: 2rem; margin-bottom: 8px; }
-             .file-name-grid { font-size: 0.8rem; }
-             .file-item-list { padding: 8px 10px; gap: 8px; }
-             .file-icon-list { font-size: 1.1rem; width: 18px; }
-             .file-name-list { font-size: 0.85rem; }
-             .file-info-list { font-size: 0.7rem; min-width: 80px; gap: 5px; }
-             .file-duration-list { width: 40px; }
-             .file-size-list { min-width: 40px; }
-             #player-section { height: 190px; } /* Mobile small default height */
+             /* Smaller phone adjustments */
+             body { padding-bottom: calc(190px + 25px); } /* Player: ~190px + Toggle: 25px */
+
+             #player-section { height: 190px; }
              #player-section.minimized { height: 35px; }
-             .player-buttons { gap: 10px; }
-             .player-button { width: 32px; height: 32px; font-size: 1rem; }
+
+             .player-content-wrapper { padding: 10px 12px; gap: 8px; }
+
+             /* Row 1 */
+             .player-album-art { width: 40px; height: 40px; }
+             .player-info { gap: 10px; min-height: 40px; }
+             .player-title { font-size: 0.85rem; }
+             .player-subtitle { font-size: 0.7rem; }
+             .player-subtitle-small { font-size: 0.65rem; }
+
+             /* Row 3 */
+             .player-controls { gap: 12px; }
+             .player-button { width: 34px; height: 34px; font-size: 1rem; }
              .play-pause-btn { width: 40px; height: 40px; }
-             .player-extras { gap: 10px; justify-content: center; }
-             .pitch-control, .volume-control { width: 100%; justify-content: center; min-width: unset; }
-             .control-slider { width: 120px; }
-             #search-hint-popup { bottom: 10px; right: 10px; font-size: 0.8rem; padding: 8px 12px; }
+             .play-pause-btn i { font-size: 1.1rem; }
+
+             /* Row 4 */
+             .player-extras { gap: 8px 15px; }
+             .pitch-control, .volume-control { min-width: 120px; }
+             .control-slider { width: 90px; }
          }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- Header -->
         <div class="header">
             <h1>MP3 Archive</h1>
-             <!-- Main View Toggle -->
              <div class="main-view-toggle">
-                 <button id="folder-view-btn" class="main-view-btn" title="Browse by Folder">Folders</button>
-                 <button id="artist-view-btn" class="main-view-btn" title="Browse by Artist">Artists</button>
+                 <button id="folder-view-btn" class="main-view-btn active" title="Browse by Folder">Folders</button>
+                 <!-- <button id="artist-view-btn" class="main-view-btn" title="Browse by Artist">Artists</button> -->
              </div>
             <div class="search-area">
-                 <button id="search-toggle-btn" class="header-icon-button" title="Search Files (/)">🔍</button>
+                 <button id="search-toggle-btn" class="header-icon-button" title="Search Files (/)"><i class="fas fa-search"></i></button>
                  <div class="search-container" id="search-container">
-                     <span class="search-icon-input">🔍</span>
+                     <span class="search-icon-input"><i class="fas fa-search"></i></span>
                      <input type="search" id="search-box" placeholder="Search all files...">
                  </div>
             </div>
         </div>
 
+        <!-- Controls Bar -->
         <div class="controls-bar">
             <div class="directory-container">
-                <div class="directory-path" id="directory-path">
-                    <!-- Breadcrumbs dynamically added here -->
-                </div>
+                <div class="directory-path" id="directory-path"></div>
             </div>
-            <div class="view-toggle-buttons" id="grid-list-toggle-container"> <!-- Wrapper -->
-                <button id="grid-view-btn" class="view-toggle-btn" title="Grid View">▦</button>
-                <button id="list-view-btn" class="view-toggle-btn" title="List View">☰</button>
+            <div class="view-toggle-buttons" id="grid-list-toggle-container">
+                <button id="grid-view-btn" class="view-toggle-btn active" title="Grid View"><i class="fas fa-th-large"></i></button>
+                <button id="list-view-btn" class="view-toggle-btn" title="List View"><i class="fas fa-list"></i></button>
             </div>
         </div>
 
-        <!-- Skeleton Loader Structure (Initially hidden) -->
+        <!-- Skeleton Loader -->
         <div id="skeleton-loader" class="file-browser-grid" style="display: none;">
-            <!-- Placeholder Items -->
             <div class="file-item-grid skeleton"><div class="skeleton-icon"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div></div>
             <div class="file-item-grid skeleton"><div class="skeleton-icon"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div></div>
             <div class="file-item-grid skeleton"><div class="skeleton-icon"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div></div>
@@ -322,27 +376,27 @@
             <div class="file-item-grid skeleton"><div class="skeleton-icon"></div><div class="skeleton-text"></div><div class="skeleton-text short"></div></div>
         </div>
 
-        <div id="file-browser-container">
-             <!-- Files / Artists / Albums / Tracks will be displayed here -->
-        </div>
+        <!-- File Browser -->
+        <div id="file-browser-container"></div>
 
-        <div id="status-message" class="status-message">
-            <!-- Status content set by JS -->
-        </div>
+        <!-- Status Message -->
+        <div id="status-message" class="status-message"></div>
     </div>
 
     <!-- Player Section -->
     <div id="player-section">
         <button id="player-toggle-btn" class="player-toggle-button" title="Minimize Player">
-            <span class="toggle-icon">▼</span>
+            <span class="toggle-icon"><i class="fas fa-chevron-down"></i></span>
         </button>
          <div id="mini-progress-bar" class="mini-progress"></div>
 
-        <div class="player-content-wrapper">
+        <div class="player-content-wrapper"> <!-- Desktop: flex-row | Mobile: flex-column -->
+
+            <!-- Info (Left / Row 1) -->
             <div class="player-info">
                 <div class="player-album-art" id="player-album-art">
                     <img id="album-art-img" src="" alt="Album Art" />
-                    <span id="album-art-icon">🎵</span>
+                    <span id="album-art-icon"><i class="fas fa-music"></i></span>
                     <div class="loader-overlay"><span class="loader"></span></div>
                 </div>
                 <div class="player-text">
@@ -351,16 +405,20 @@
                     <div id="now-playing-path" class="player-subtitle-small"></div>
                 </div>
             </div>
+
+            <!-- Controls (Center / Row 3 on Mobile) -->
             <div class="player-controls">
+                <!-- Buttons -->
                  <div class="player-buttons">
-                    <button class="player-button" id="prev-btn" disabled title="Previous Track (←)">⏮</button>
-                    <button id="play-pause-btn" class="player-button play-pause-btn" disabled title="Play/Pause (Space)">▶</button>
-                    <button class="player-button" id="next-btn" disabled title="Next Track (→)">⏭</button>
+                    <button class="player-button" id="prev-btn" disabled title="Previous Track (←)"><i class="fas fa-step-backward"></i></button>
+                    <button id="play-pause-btn" class="player-button play-pause-btn" disabled title="Play/Pause (Space)"><i class="fas fa-play"></i></button>
+                    <button class="player-button" id="next-btn" disabled title="Next Track (→)"><i class="fas fa-step-forward"></i></button>
                     <button class="player-button" id="download-btn" title="Download current track" disabled>
-                        <span class="btn-icon">💾</span>
+                        <span class="btn-icon"><i class="fas fa-download"></i></span>
                         <span class="loader btn-loader"></span>
                     </button>
                 </div>
+                <!-- Progress Bar (Desktop only inside here) -->
                 <div class="progress-container">
                     <span id="current-time" class="progress-time">0:00</span>
                     <div class="progress-bar-wrapper" id="progress-wrapper">
@@ -371,35 +429,38 @@
                     <span id="duration" class="progress-time">0:00</span>
                 </div>
             </div>
+
+            <!-- Extras (Right / Row 4 on Mobile) -->
             <div class="player-extras">
                  <div class="pitch-control">
                     <span class="control-label">Speed</span>
                     <input type="range" class="control-slider pitch-slider" id="pitch-slider" min="0.5" max="2" step="0.05" value="1" disabled>
                 </div>
                 <div class="volume-control">
-                    <span class="volume-icon" id="volume-icon">🔊</span>
+                    <span class="volume-icon" id="volume-icon"><i class="fas fa-volume-up"></i></span>
                     <input type="range" class="control-slider volume-slider" id="volume-slider" min="0" max="1" step="0.05" value="0.7">
                 </div>
+                 <!-- Effects buttons removed -->
             </div>
+
         </div><!-- End player-content-wrapper -->
     </div>
 
     <audio id="audio-element-for-context" style="display: none;"></audio>
     <!-- Search Hint Popup -->
     <div id="search-hint-popup">
-         <span>Tip: Tap 🔍 or press <kbd>/</kbd> to search</span>
-         <button id="close-hint-btn" title="Dismiss hint">✕</button>
+         <span>Tip: Tap <i class="fas fa-search"></i> or press <kbd>/</kbd> to search</span>
+         <button id="close-hint-btn" title="Dismiss hint"><i class="fas fa-times"></i></button>
     </div>
 
     <script>
         // --- Configuration ---
-        const archiveIdentifier = 'mp3archive'; // <<< CHANGE THIS
+        const archiveIdentifier = 'mp3archive'; // <<< Your Archive Identifier
         const archiveApiUrl = `https://archive.org/metadata/${archiveIdentifier}`;
         const archiveDownloadUrlBase = `https://archive.org/download/${archiveIdentifier}`;
-        const excludedExtensions = ['.xml', '.txt', '.torrent', '.jpg', '.png', '.gif', '.log', '.php', '.html', '.css', '.js', '.pdf', '.zip', '.rar', '.jpeg', '.md5', '.json', '_meta.sqlite', '_files.xml'];
-        const FETCH_TIMEOUT_MS = 25000; // 25 seconds timeout
+        const FETCH_TIMEOUT_MS = 40000;
         const MAX_RETRIES = 2;
-        const MAX_CACHE_SIZE = 20; // Cache more buffers
+        const MAX_CACHE_SIZE = 20;
         const SEEK_TIME_SECONDS = 5;
         const UNKNOWN_ARTIST = "[Unknown Artist]";
         const UNKNOWN_ALBUM = "[Unknown Album]";
@@ -424,28 +485,31 @@
         const nowPlayingArtistAlbumEl = document.getElementById('now-playing-artist-album');
         const nowPlayingPathEl = document.getElementById('now-playing-path');
         const playPauseBtn = document.getElementById('play-pause-btn');
+        const playPauseIcon = playPauseBtn.querySelector('i');
         const prevBtn = document.getElementById('prev-btn');
         const nextBtn = document.getElementById('next-btn');
         const downloadBtn = document.getElementById('download-btn');
-        const progressWrapper = document.getElementById('progress-wrapper');
+        const progressContainer = document.querySelector('.player-controls .progress-container'); // Grab desktop one
+        const mobileProgressContainer = document.querySelector('.progress-container:not(.player-controls *)'); // Potentially needed if we duplicate HTML
+        const progressWrapper = document.getElementById('progress-wrapper'); // Assumes one primary wrapper
         const progressBar = document.getElementById('progress-bar');
         const currentTimeEl = document.getElementById('current-time');
         const durationEl = document.getElementById('duration');
         const volumeSlider = document.getElementById('volume-slider');
-        const volumeIcon = document.getElementById('volume-icon');
+        const volumeIcon = document.getElementById('volume-icon').querySelector('i');
         const pitchSlider = document.getElementById('pitch-slider');
         const searchHintPopup = document.getElementById('search-hint-popup');
         const closeHintBtn = document.getElementById('close-hint-btn');
         const gridViewBtn = document.getElementById('grid-view-btn');
         const listViewBtn = document.getElementById('list-view-btn');
-        const gridListToggleContainer = document.getElementById('grid-list-toggle-container'); // Wrapper for grid/list toggle
-        const folderViewBtn = document.getElementById('folder-view-btn'); // Main view toggle
-        const artistViewBtn = document.getElementById('artist-view-btn'); // Main view toggle
+        const gridListToggleContainer = document.getElementById('grid-list-toggle-container');
+        const folderViewBtn = document.getElementById('folder-view-btn');
 
         // --- Audio State ---
         let audioContext;
         let sourceNode;
         let gainNode;
+        // Removed EQ/Delay nodes
         let currentAudioBuffer;
         let isPlaying = false;
         let currentPlaybackRate = 1.0;
@@ -455,21 +519,23 @@
         let _startOffset = 0;
         let _pausedTime = 0;
         let fetchAbortController = null;
+        const activeDownloads = new Map();
 
         // --- Data State ---
-        let currentDirectory = ''; // Folder view state
-        let currentArtist = null; // Artist view state
-        let currentAlbum = null; // Artist view state
-        let allArchiveFiles = []; // Raw file list from API
-        let artistsData = {}; // Structured: { artist: { _albums: { album: [track, ...] } } }
+        let currentDirectory = '';
+        let currentArtist = null;
+        let currentAlbum = null;
+        let allArchiveFiles = [];
+        let artistsData = {};
         let isArtistsDataBuilt = false;
-        let currentDirectoryItems = []; // Items currently displayed (folder contents, search results, artist list, album list)
-        let currentTracklist = []; // Playable tracks in the current context (folder, album, search)
+        let currentDirectoryItems = [];
+        let currentTracklist = [];
         let currentTrackIndex = -1;
-        let currentPlayingFile = null; // { name, path, displayName, size, format, duration?, metadata?, artist?, album?, title? }
-        let currentLayoutMode = localStorage.getItem('layoutMode') || 'grid'; // 'grid' or 'list'
-        let currentMainView = localStorage.getItem('mainView') || 'folder'; // 'folder' or 'artist'
+        let currentPlayingFile = null;
+        let currentLayoutMode = localStorage.getItem('layoutMode') || 'grid';
+        let currentMainView = localStorage.getItem('mainView') || 'folder';
         let isPlayerMinimized = localStorage.getItem('playerMinimized') === 'true';
+        // Removed currentEffectPreset
 
         // --- Caching ---
         const audioCache = new Map();
@@ -479,15 +545,17 @@
         const VIEW_MODE_FOLDER = 'folder';
         const VIEW_MODE_ARTIST = 'artist';
 
+        // Removed EffectPresets Object
+
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', () => {
             loadSettings();
-            setupAudioContext();
-            loadArchiveStructure(); // Start loading
+            setupAudioContext(); // Simplified
+            loadArchiveStructure();
             setupEventListeners();
             updatePlayerUI();
-            applyLayoutMode(); // Grid/List
-            applyMainViewMode(); // Folder/Artist
+            applyLayoutMode();
+            applyMainViewMode();
             applyMinimizedState();
             showSearchHintIfNeeded();
         });
@@ -498,6 +566,7 @@
              isPlayerMinimized = localStorage.getItem('playerMinimized') === 'true';
              currentLayoutMode = localStorage.getItem('layoutMode') || 'grid';
              currentMainView = localStorage.getItem('mainView') || 'folder';
+             // Removed effect preset loading
 
              volumeSlider.value = currentVolume;
              pitchSlider.value = currentPlaybackRate;
@@ -509,6 +578,7 @@
              catch (e) { console.warn(`Could not save setting ${key}:`, e); }
         }
 
+        // --- Simplified Audio Context Setup ---
         function setupAudioContext() {
             const initAudio = () => {
                 if (!audioContext) {
@@ -516,48 +586,41 @@
                         audioContext = new (window.AudioContext || window.webkitAudioContext)();
                         gainNode = audioContext.createGain();
                         gainNode.gain.value = currentVolume;
-                        gainNode.connect(audioContext.destination);
-                        console.log("AudioContext initialized.");
+                        gainNode.connect(audioContext.destination); // Connect gain directly to output
+
+                        console.log("AudioContext initialized (Gain -> Destination).");
+
+                        document.removeEventListener('pointerdown', initAudio);
+                        document.removeEventListener('keydown', initAudio);
+
                     } catch (e) {
                         console.error("Error creating AudioContext:", e);
-                        displayStatus("Error: Web Audio API not supported or blocked.", true);
+                        displayStatus("Error: Web Audio API setup failed.", true);
                     }
                 }
             };
-            // Use pointerdown for potentially faster mobile init
             document.addEventListener('pointerdown', initAudio, { once: true });
             document.addEventListener('keydown', initAudio, { once: true });
         }
 
+        // Removed applyEffectPreset function
 
-        // --- Archive.org API & Data Handling ---
+        // --- Archive.org API & Data Handling (No changes needed here) ---
         async function loadArchiveStructure() {
-            showInitialLoading(); // Show skeleton and status message
-
+            showInitialLoading();
             try {
                 const response = await fetch(archiveApiUrl);
                 if (!response.ok) throw new Error(`Metadata fetch failed (Status: ${response.status})`);
                 const data = await response.json();
+                if (!data.files || !Array.isArray(data.files)) throw new Error('Invalid archive structure: No files array found.');
 
-                if (!data.files || !Array.isArray(data.files)) {
-                    throw new Error('Invalid archive structure: No files array found.');
-                }
-
-                // Process files: Extract basic info + BEST EFFORT metadata from API
                 allArchiveFiles = processRawFiles(data.files);
 
-                // Build artist data structure (can be done async)
-                buildArtistViewData(allArchiveFiles); // Doesn't block rendering folder view
+                if (currentMainView === VIEW_MODE_ARTIST) setMainViewMode(VIEW_MODE_FOLDER);
+                else updateDirectoryView('');
 
-                // Initial Render based on saved/default view
-                if (currentMainView === VIEW_MODE_ARTIST) {
-                    renderArtistList();
-                } else {
-                    updateDirectoryView(''); // Render root folder
-                }
-                 updateMainViewToggleButtons();
-                 hideInitialLoading();
-
+                updateMainViewToggleButtons();
+                hideInitialLoading();
             } catch (error) {
                 console.error('Error loading archive:', error);
                 displayStatus(`Error loading archive: ${error.message}`, true);
@@ -565,367 +628,209 @@
             }
         }
 
-         function processRawFiles(rawFiles) {
-             const fileMap = new Map();
-             rawFiles.forEach(file => fileMap.set(file.name, file));
-
+        function processRawFiles(rawFiles) {
+             const fileMap = new Map(rawFiles.map(f => [f.name, f]));
              return rawFiles.map(file => {
                  const path = file.name;
                  let displayName = path.split('/').filter(p => p).pop() || path;
                  let isDirectory = path.endsWith('/');
-                 if (!isDirectory && fileMap.size > 1) { // Avoid loop if only 1 file
+                 if (!isDirectory && fileMap.size > 1) {
                       for (const otherPath of fileMap.keys()) {
-                          if (otherPath !== path && otherPath.startsWith(path + '/')) {
-                              isDirectory = true;
-                              break;
-                          }
+                          if (otherPath !== path && otherPath.startsWith(path + '/')) { isDirectory = true; break; }
                       }
                  }
-
-                 let durationSeconds = undefined;
-                 if (file.length && !isNaN(parseFloat(file.length))) {
-                     durationSeconds = parseFloat(file.length);
-                 }
-
+                 let durationSeconds = file.length && !isNaN(parseFloat(file.length)) ? parseFloat(file.length) : undefined;
                  let apiArtist = file.creator || file.artist || null;
                  let apiAlbum = file.album || null;
                  let apiTitle = file.title || null;
-
                  if (apiArtist && typeof apiArtist === 'string') apiArtist = apiArtist.split(';')[0].trim();
                  if (apiAlbum && typeof apiAlbum === 'string') apiAlbum = apiAlbum.split(';')[0].trim();
-
                  return {
-                     name: file.name, path: path,
-                     size: file.size ? parseInt(file.size) : 0,
-                     format: file.format || '',
-                     isDirectory: isDirectory,
-                     isAudio: !isDirectory && path.toLowerCase().endsWith('.mp3'),
-                     displayName: displayName,
-                     duration: durationSeconds,
-                     artist: apiArtist, album: apiAlbum, title: apiTitle,
-                     metadata: null
+                     name: file.name, path: path, size: file.size ? parseInt(file.size) : 0, format: file.format || '',
+                     isDirectory: isDirectory, isAudio: !isDirectory && path.toLowerCase().endsWith('.mp3'),
+                     displayName: displayName, duration: durationSeconds,
+                     artist: apiArtist, album: apiAlbum, title: apiTitle, metadata: null
                  };
              })
-             .filter(file => {
-                 if (file.isDirectory) return true;
-                 if (file.isAudio) {
-                     const extension = file.path.substring(file.path.lastIndexOf('.')).toLowerCase();
-                     return !excludedExtensions.includes(extension);
-                 }
-                 return false;
-             })
+             .filter(file => file.isDirectory || file.isAudio)
              .sort((a, b) => {
-                 if (a.isDirectory && !b.isDirectory) return -1;
-                 if (!a.isDirectory && b.isDirectory) return 1;
-                 return (a.displayName || '').localeCompare(b.displayName || '');
+                 if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
+                 return (a.displayName || '').localeCompare(b.displayName || '', undefined, { numeric: true, sensitivity: 'base' });
               });
          }
 
-         function buildArtistViewData(files) {
-             console.log("Building artist view data...");
-             const tempArtistsData = {};
-             let audioFileCount = 0;
-
-             files.forEach(file => {
-                 if (!file.isAudio) return;
-                 audioFileCount++;
-                 const artist = file.artist || UNKNOWN_ARTIST;
-                 const album = file.album || UNKNOWN_ALBUM;
-                 if (!tempArtistsData[artist]) tempArtistsData[artist] = { _albums: {} };
-                 if (!tempArtistsData[artist]._albums[album]) tempArtistsData[artist]._albums[album] = [];
-                 tempArtistsData[artist]._albums[album].push(file);
-             });
-
-              Object.keys(tempArtistsData).forEach(artist => {
-                 Object.keys(tempArtistsData[artist]._albums).forEach(album => {
-                      tempArtistsData[artist]._albums[album].sort((a, b) => {
-                           const titleA = a.title || a.displayName;
-                           const titleB = b.title || b.displayName;
-                           return titleA.localeCompare(titleB);
-                      });
-                 });
-              });
-
-             artistsData = Object.fromEntries(
-                 Object.entries(tempArtistsData).sort(([artistA], [artistB]) => artistA.localeCompare(artistB))
-             );
-
-             isArtistsDataBuilt = true;
-             console.log(`Artist view data built. Artists: ${Object.keys(artistsData).length}, Audio Files: ${audioFileCount}`);
-             if (currentMainView === VIEW_MODE_ARTIST && !currentArtist && !currentAlbum) {
-                  renderArtistList();
-             }
-         }
-
-
-        // --- Skeleton Loader & Status ---
+        // --- Skeleton Loader & Status (No changes needed) ---
         function showInitialLoading() { showSkeletonLoader(true); statusMessageEl.innerHTML = `<span class="loader"></span>Loading archive...`; statusMessageEl.classList.add('visible'); fileBrowserContainerEl.innerHTML = ''; }
         function hideInitialLoading() { hideSkeletonLoader(); if (statusMessageEl.textContent.includes("Loading archive")) { statusMessageEl.classList.remove('visible'); statusMessageEl.innerHTML = ''; } }
-        function showSkeletonLoader(show) { skeletonLoaderEl.style.display = show ? (currentLayoutMode === 'grid' ? 'grid' : 'flex') : 'none'; /* Apply flex for list skeleton */ skeletonLoaderEl.className = `file-browser-${currentLayoutMode} visible`; }
+        function showSkeletonLoader(show) { skeletonLoaderEl.style.display = show ? (currentLayoutMode === 'grid' ? 'grid' : 'flex') : 'none'; skeletonLoaderEl.className = `file-browser-${currentLayoutMode} visible`; }
         function hideSkeletonLoader() { skeletonLoaderEl.style.display = 'none'; }
         function displayStatus(message, isError = false) { statusMessageEl.innerHTML = message; statusMessageEl.style.color = isError ? 'var(--accent-color)' : 'var(--text-secondary)'; statusMessageEl.classList.add('visible'); fileBrowserContainerEl.innerHTML = ''; hideSkeletonLoader(); }
         function hideLoading() { if (!statusMessageEl.style.color.includes('accent')) { statusMessageEl.classList.remove('visible'); } }
 
+        // --- View Mode Switching (No changes needed) ---
+        function setMainViewMode(mode) { if (mode === currentMainView) return; currentMainView = mode; saveSetting('mainView', mode); applyMainViewMode(); currentArtist = null; currentAlbum = null; searchBox.value = ''; if(searchContainer.classList.contains('active')) toggleSearch(false); showSkeletonLoader(true); fileBrowserContainerEl.innerHTML = ''; requestAnimationFrame(() => { if (mode === VIEW_MODE_ARTIST) displayStatus("Artist view not implemented.", false); else updateDirectoryView(currentDirectory); }); }
+        function applyMainViewMode() { updateMainViewToggleButtons(); updateBreadcrumbs(); const showGridListToggle = (currentMainView === VIEW_MODE_FOLDER) || (currentMainView === VIEW_MODE_ARTIST && currentArtist && currentAlbum); gridListToggleContainer.style.display = showGridListToggle ? 'flex' : 'none'; }
+        function updateMainViewToggleButtons() { folderViewBtn.classList.toggle('active', currentMainView === VIEW_MODE_FOLDER); }
+        function setLayoutMode(mode) { if (mode === currentLayoutMode) return; currentLayoutMode = mode; saveSetting('layoutMode', mode); applyLayoutMode(); rerenderCurrentView(); }
+        function applyLayoutMode() { gridViewBtn.classList.toggle('active', currentLayoutMode === 'grid'); listViewBtn.classList.toggle('active', currentLayoutMode === 'list'); skeletonLoaderEl.className = `file-browser-${currentLayoutMode} visible`; if (fileBrowserContainerEl.children.length > 0) fileBrowserContainerEl.className = `file-browser-${currentLayoutMode}`; }
+        function rerenderCurrentView() { showSkeletonLoader(true); fileBrowserContainerEl.innerHTML = ''; requestAnimationFrame(() => { if (searchBox.value) handleSearch(); else if (currentMainView === VIEW_MODE_ARTIST) displayStatus("Artist view not implemented.", false); else updateDirectoryView(currentDirectory); }); }
 
-        // --- View Mode Switching (Main: Folder/Artist) ---
-        function setMainViewMode(mode) {
-             if (mode === currentMainView) return;
-             currentMainView = mode;
-             saveSetting('mainView', mode);
-             applyMainViewMode(); // Update buttons, breadcrumbs
+        // --- Rendering (Folder View) (No changes needed) ---
+        function updateDirectoryView(path) { if (currentMainView !== VIEW_MODE_FOLDER) return; showSkeletonLoader(true); fileBrowserContainerEl.innerHTML = ''; currentDirectory = path; currentArtist = null; currentAlbum = null; if (searchBox.value) { searchBox.value = ''; toggleSearch(false);} updateBreadcrumbs(); const items = getItemsInDirectory(allArchiveFiles, path); currentDirectoryItems = items; currentTracklist = items.filter(item => item.isAudio); currentTrackIndex = currentPlayingFile ? currentTracklist.findIndex(track => track.path === currentPlayingFile.path) : -1; requestAnimationFrame(() => { renderFileBrowser(items); hideSkeletonLoader(); updatePrevNextButtons(); if (items.length === 0 && !path) displayStatus("Archive empty or failed load.", true); else if (items.length === 0) displayStatus("Directory is empty.", false); else hideLoading(); }); }
+        function getItemsInDirectory(allItems, dirPath) { const items = new Map(); const dirPathLength = dirPath.length; allItems.forEach(item => { if (!item.path.startsWith(dirPath) || item.path === dirPath) return; const relativePath = item.path.substring(dirPathLength); const slashIndex = relativePath.indexOf('/'); if (slashIndex === -1) { if (!item.isDirectory) items.set(item.path, item); } else { const firstPart = relativePath.substring(0, slashIndex); const subDirPath = dirPath + firstPart + '/'; if (!items.has(subDirPath)) { let dirEntry = allItems.find(d => d.path === subDirPath && d.isDirectory); if (dirEntry) items.set(subDirPath, dirEntry); else items.set(subDirPath, { name: subDirPath, path: subDirPath, displayName: firstPart, isDirectory: true, isAudio: false, size: 0, format: 'Dir (Synth)' }); } if (item.isDirectory && item.path.endsWith('/') && slashIndex === (relativePath.length - 1)) { if (!items.has(item.path)) items.set(item.path, item); } } }); allItems.forEach(item => { if (item.isDirectory && item.path.startsWith(dirPath) && item.path !== dirPath) { const relativePath = item.path.substring(dirPathLength); if (relativePath.indexOf('/') === relativePath.length - 1) { if (!items.has(item.path)) items.set(item.path, item); } } }); return Array.from(items.values()).sort((a, b) => { if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1; return (a.displayName || '').localeCompare(b.displayName || '', undefined, { numeric: true, sensitivity: 'base' }); }); }
 
-             currentArtist = null; currentAlbum = null; // Reset sub-nav
-             searchBox.value = ''; if(searchContainer.classList.contains('active')) toggleSearch(false); // Clear search
+        // --- Rendering (Combined Dispatchers) (No changes needed) ---
+        function renderFileBrowser(items) { fileBrowserContainerEl.innerHTML = ''; fileBrowserContainerEl.className = ''; if (items.length === 0) return; if (currentLayoutMode === 'list') { fileBrowserContainerEl.classList.add('file-browser-list'); renderFileBrowserList(items); } else { fileBrowserContainerEl.classList.add('file-browser-grid'); renderFileBrowserGrid(items); } }
 
-             showSkeletonLoader(true); fileBrowserContainerEl.innerHTML = '';
+        // --- Grid/List Rendering Implementation (No changes needed) ---
+        function renderFileBrowserGrid(items) { items.forEach(item => { const itemEl = document.createElement('div'); itemEl.className = 'file-item-grid'; itemEl.dataset.path = item.path; const icon = document.createElement('div'); icon.className = 'file-icon-grid'; const nameEl = document.createElement('div'); nameEl.className = 'file-name-grid'; nameEl.textContent = item.displayName || '[No Name]'; nameEl.title = item.displayName || item.path; const infoEl = document.createElement('div'); infoEl.className = 'file-info-grid'; if (item.isDirectory) { icon.innerHTML = '<i class="fas fa-folder"></i>'; icon.classList.add('folder'); itemEl.addEventListener('click', (e) => { if (!e.target.closest('.track-download-btn')) updateDirectoryView(item.path); }); infoEl.textContent = 'Folder'; } else if (item.isAudio) { icon.innerHTML = '<i class="fas fa-music"></i>'; itemEl.addEventListener('click', (e) => { if (!e.target.closest('.track-download-btn')) playAudioFile(item, currentTracklist); }); infoEl.textContent = formatFileSize(item.size); const downloadItemBtn = document.createElement('button'); downloadItemBtn.className = 'track-download-btn'; downloadItemBtn.title = `Download ${item.displayName}`; downloadItemBtn.dataset.path = item.path; downloadItemBtn.innerHTML = `<span class="btn-icon"><i class="fas fa-download"></i></span><span class="loader btn-loader"></span><span class="download-progress">0%</span>`; itemEl.appendChild(downloadItemBtn); } else { icon.innerHTML = '<i class="fas fa-file"></i>'; infoEl.textContent = formatFileSize(item.size); itemEl.style.cursor = 'default'; itemEl.style.opacity = '0.7'; } itemEl.appendChild(icon); itemEl.appendChild(nameEl); itemEl.appendChild(infoEl); fileBrowserContainerEl.appendChild(itemEl); }); }
+        function renderFileBrowserList(items) { items.forEach(item => { const itemEl = document.createElement('div'); itemEl.className = `file-item-list ${item.isDirectory || item.isAudio ? '' : 'non-interactive'}`; itemEl.dataset.path = item.path; const icon = document.createElement('div'); icon.className = 'file-icon-list'; const nameEl = document.createElement('div'); nameEl.className = 'file-name-list'; nameEl.textContent = item.title || item.displayName || '[No Name]'; nameEl.title = item.displayName || item.path; const infoEl = document.createElement('div'); infoEl.className = 'file-info-list'; const durationEl = document.createElement('span'); durationEl.className = 'file-duration-list'; const sizeEl = document.createElement('span'); sizeEl.className = 'file-size-list'; let downloadItemBtn = null; if (item.isDirectory) { icon.innerHTML = '<i class="fas fa-folder"></i>'; icon.classList.add('folder'); itemEl.addEventListener('click', (e) => { if (!e.target.closest('.track-download-btn')) updateDirectoryView(item.path); }); sizeEl.textContent = 'Folder'; itemEl.style.cursor = 'pointer'; } else if (item.isAudio) { icon.innerHTML = '<i class="fas fa-music"></i>'; nameEl.addEventListener('click', () => playAudioFile(item, currentTracklist)); durationEl.textContent = item.duration ? formatTime(item.duration) : '--:--'; durationEl.dataset.path = item.path; sizeEl.textContent = formatFileSize(item.size); downloadItemBtn = document.createElement('button'); downloadItemBtn.className = 'track-download-btn'; downloadItemBtn.title = `Download ${item.displayName}`; downloadItemBtn.dataset.path = item.path; downloadItemBtn.innerHTML = `<span class="btn-icon"><i class="fas fa-download"></i></span><span class="loader btn-loader"></span><span class="download-progress">0%</span>`; itemEl.style.cursor = 'default'; } else { icon.innerHTML = '<i class="fas fa-file"></i>'; sizeEl.textContent = formatFileSize(item.size); } itemEl.appendChild(icon); itemEl.appendChild(nameEl); infoEl.appendChild(durationEl); infoEl.appendChild(sizeEl); if (downloadItemBtn) infoEl.appendChild(downloadItemBtn); itemEl.appendChild(infoEl); fileBrowserContainerEl.appendChild(itemEl); }); }
+        function formatFileSize(bytes) { if (bytes === undefined || bytes === null || bytes < 0) return ''; if (bytes === 0) return '0 B'; if (bytes < 1024) return bytes + ' B'; const i = Math.floor(Math.log(bytes) / Math.log(1024)); const units = ['B', 'KB', 'MB', 'GB', 'TB']; const unitIndex = Math.min(i, units.length - 1); const fixedDigits = unitIndex >= 2 ? 1 : 0; return parseFloat((bytes / Math.pow(1024, unitIndex)).toFixed(fixedDigits)) + ' ' + units[unitIndex];}
 
-             requestAnimationFrame(() => {
-                  if (mode === VIEW_MODE_ARTIST) {
-                      if (!isArtistsDataBuilt) { displayStatus("Building artist data..."); }
-                      else { renderArtistList(); }
-                  } else { updateDirectoryView(currentDirectory); } // Render last folder
-                  // Skeletons hidden by rendering functions
-             });
+        // --- Breadcrumbs (No changes needed) ---
+        function updateBreadcrumbs() { directoryPathEl.innerHTML = ''; if (currentMainView === VIEW_MODE_ARTIST) { const artistsCrumb = createFolderCrumb('Artists', '', !currentArtist && !currentAlbum); directoryPathEl.appendChild(artistsCrumb); } else { const rootCrumb = createFolderCrumb('Root', '', currentDirectory === ''); directoryPathEl.appendChild(rootCrumb); const parts = currentDirectory.split('/').filter(part => part !== ''); let pathAccumulator = ''; parts.forEach((part, index) => { pathAccumulator += part + '/'; addSeparator(); const crumb = createFolderCrumb(part, pathAccumulator, index === parts.length - 1); directoryPathEl.appendChild(crumb); }); } }
+        function addSeparator() { const separator = document.createElement('span'); separator.className = 'directory-separator'; separator.innerHTML = '&rsaquo;'; directoryPathEl.appendChild(separator); }
+        function createFolderCrumb(text, path, isCurrent) { const crumb = document.createElement('span'); crumb.className = `directory-crumb ${isCurrent ? 'current' : ''}`; crumb.textContent = text; if (!isCurrent) { crumb.addEventListener('click', () => updateDirectoryView(path)); } return crumb; }
+
+        // --- Search (No changes needed) ---
+        function toggleSearch(forceState) { const activate = forceState !== undefined ? forceState : !searchContainer.classList.contains('active'); if (activate) { searchContainer.classList.add('active'); searchBox.focus(); } else { searchContainer.classList.remove('active'); searchBox.blur(); } }
+        function handleSearch() { showSkeletonLoader(true); fileBrowserContainerEl.innerHTML = ''; const searchTerm = searchBox.value.toLowerCase().trim(); if (!searchTerm) { hideSkeletonLoader(); applyMainViewMode(); rerenderCurrentView(); return; } const results = allArchiveFiles.filter(file => !file.isDirectory && file.isAudio && (file.path.toLowerCase().includes(searchTerm) || (file.title && file.title.toLowerCase().includes(searchTerm)) || (file.artist && file.artist.toLowerCase().includes(searchTerm)) || (file.album && file.album.toLowerCase().includes(searchTerm))) ).sort((a, b) => (a.title || a.displayName).localeCompare(b.title || b.displayName)); currentDirectoryItems = results; currentTracklist = results; currentTrackIndex = currentPlayingFile ? currentTracklist.findIndex(track => track.path === currentPlayingFile.path) : -1; updatePrevNextButtons(); directoryPathEl.innerHTML = ''; const searchCrumb = createFolderCrumb(`Search: "${searchBox.value}"`, '', true); directoryPathEl.appendChild(searchCrumb); gridListToggleContainer.style.display = 'flex'; requestAnimationFrame(() => { renderFileBrowser(results); hideSkeletonLoader(); if (results.length === 0) displayStatus(`No results found for "${searchBox.value}".`, false); else hideLoading(); }); }
+
+        // --- Metadata (No changes needed) ---
+        async function getMetadataFromTags(file, arrayBuffer) { return new Promise((resolve) => { if (typeof jsmediatags === 'undefined') { resolve({}); return; } jsmediatags.read(new Blob([arrayBuffer]), { onSuccess: (tag) => resolve({ title: tag.tags.title, artist: tag.tags.artist, album: tag.tags.album, picture: tag.tags.picture }), onError: (error) => { console.warn('jsmediatags error:', file?.path, error.type, error.info); resolve({}); } }); }); }
+        function displayMetadataInPlayer(metadata) { const title = metadata?.title || currentPlayingFile?.title || currentPlayingFile?.displayName || 'Unknown Title'; const artist = metadata?.artist || currentPlayingFile?.artist || UNKNOWN_ARTIST; const album = metadata?.album || currentPlayingFile?.album || UNKNOWN_ALBUM; nowPlayingEl.textContent = title; nowPlayingEl.title = title; let artistAlbumText = artist === UNKNOWN_ARTIST ? album : (album === UNKNOWN_ALBUM ? artist : `${artist} • ${album}`); if (artist === UNKNOWN_ARTIST && album === UNKNOWN_ALBUM) artistAlbumText = 'Unknown Artist / Album'; nowPlayingArtistAlbumEl.textContent = artistAlbumText; nowPlayingArtistAlbumEl.title = artistAlbumText; const pathParts = currentPlayingFile?.path?.split('/').filter(p => p); pathParts?.pop(); nowPlayingPathEl.textContent = pathParts?.length > 0 ? pathParts.join(' / ') : ''; nowPlayingPathEl.title = currentPlayingFile?.path || ''; albumArtLoader.classList.remove('visible'); albumArtIcon.classList.remove('hidden'); albumArtImg.classList.remove('loaded'); albumArtImg.src = ''; albumArtImg.style.display = 'none'; if (metadata?.picture && metadata.picture.data) { try { const { data, format } = metadata.picture; let base64String = ""; const chunkSize = 8192; for (let i = 0; i < data.length; i += chunkSize) base64String += String.fromCharCode.apply(null, data.slice(i, i + chunkSize)); const imageUrl = `data:${format};base64,${window.btoa(base64String)}`; albumArtImg.onload = () => { albumArtImg.classList.add('loaded'); albumArtImg.style.display = 'block'; albumArtIcon.classList.add('hidden'); }; albumArtImg.onerror = () => { albumArtIcon.classList.remove('hidden'); albumArtImg.style.display = 'none'; }; albumArtImg.src = imageUrl; } catch (e) { console.error("Error displaying album art:", e); albumArtIcon.classList.remove('hidden'); albumArtImg.style.display = 'none'; } } else { albumArtIcon.classList.remove('hidden'); albumArtImg.style.display = 'none'; } }
+
+        // --- Caching (No changes needed) ---
+        function manageCache(filePath, data) { if (audioCache.size >= MAX_CACHE_SIZE) { const oldestPath = cacheOrder.shift(); if (oldestPath) audioCache.delete(oldestPath); } audioCache.set(filePath, { ...data, timestamp: Date.now() }); cacheOrder.push(filePath); }
+        function clearCache() { audioCache.clear(); cacheOrder.length = 0; console.log("Audio cache cleared."); }
+
+        // --- Audio Playback (Simplified Audio Graph Connection) ---
+        async function playAudioFile(file, contextTracklist) {
+            if (!file || !file.isAudio) return;
+            if (!audioContext) { setupAudioContext(); if(!audioContext) { alert("Audio not ready. Click page first."); return; } }
+            currentTracklist = contextTracklist || [];
+            if (currentPlayingFile?.path === file.path && isPlaying) return;
+
+            stopPlayback();
+            currentPlayingFile = { ...file };
+            currentTrackIndex = currentTracklist.findIndex(track => track.path === file.path);
+            updatePlayerUI(true, 'Connecting...');
+
+            if (audioCache.has(file.path)) {
+                console.log("Playing from cache:", file.path);
+                const cachedData = audioCache.get(file.path); currentAudioBuffer = cachedData.buffer;
+                currentPlayingFile.metadata = cachedData.metadata; currentPlayingFile.title = cachedData.metadata?.title || currentPlayingFile.title; currentPlayingFile.artist = cachedData.metadata?.artist || currentPlayingFile.artist; currentPlayingFile.album = cachedData.metadata?.album || currentPlayingFile.album; currentPlayingFile.duration = currentAudioBuffer?.duration;
+                displayMetadataInPlayer(cachedData.metadata);
+                if (currentAudioBuffer) { startPlayback(0); updatePlayerUI(); updateFileDurationInList(file.path, currentAudioBuffer.duration); }
+                else { console.error("Invalid cached buffer:", file.path); audioCache.delete(file.path); updatePlayerUI(false); displayStatus(`Error: Invalid cached audio`, true); stopPlayback(true); }
+                updatePrevNextButtons(); return;
+            }
+
+            updatePlayerUI(true, 'Downloading...'); albumArtLoader.classList.add('visible'); albumArtIcon.classList.add('hidden'); albumArtImg.classList.remove('loaded'); albumArtImg.src = ''; albumArtImg.style.display = 'none';
+
+            try {
+                const arrayBuffer = await fetchWithTimeoutAndRetry(`${archiveDownloadUrlBase}/${encodeURIComponent(file.path)}`, FETCH_TIMEOUT_MS, MAX_RETRIES, true);
+                if (!currentPlayingFile || file.path !== currentPlayingFile.path) { cleanupPlaybackResources(); return; }
+                updatePlayerUI(true, 'Decoding...');
+                const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+                if (!currentPlayingFile || file.path !== currentPlayingFile.path) { cleanupPlaybackResources(); return; }
+                currentAudioBuffer = decodedBuffer; currentPlayingFile.duration = currentAudioBuffer?.duration;
+                updatePlayerUI(true, 'Reading Tags...');
+                const tagsMetadata = await getMetadataFromTags(file, arrayBuffer);
+                if (!currentPlayingFile || file.path !== currentPlayingFile.path) { cleanupPlaybackResources(); return; }
+                currentPlayingFile.metadata = tagsMetadata; currentPlayingFile.title = tagsMetadata?.title || currentPlayingFile.title; currentPlayingFile.artist = tagsMetadata?.artist || currentPlayingFile.artist; currentPlayingFile.album = tagsMetadata?.album || currentPlayingFile.album;
+                manageCache(file.path, { buffer: currentAudioBuffer, metadata: tagsMetadata });
+                displayMetadataInPlayer(tagsMetadata); startPlayback(0); updatePlayerUI(); updatePrevNextButtons(); updateFileDurationInList(file.path, currentAudioBuffer?.duration);
+            } catch (error) {
+                console.error(`Error processing ${file.path}:`, error);
+                 if (currentPlayingFile && file.path === currentPlayingFile.path) { stopPlayback(true); displayStatus(`Error playing ${file.displayName || file.path}: ${error.message || 'Unknown error'}`, true); updatePlayerUI(false); }
+                 else console.warn("Error occurred for a file no longer targeted:", file.path);
+                 albumArtLoader.classList.remove('visible'); albumArtIcon.classList.remove('hidden');
+            }
+        }
+        async function fetchWithTimeoutAndRetry(url, timeout, retries, isForPlayback = false) { let attempts = 0; let currentFetchController = null; if (isForPlayback) { if (fetchAbortController) fetchAbortController.abort("New playback fetch"); fetchAbortController = new AbortController(); currentFetchController = fetchAbortController; } else { currentFetchController = new AbortController(); } const { signal } = currentFetchController; while (attempts <= retries) { attempts++; const timeoutId = setTimeout(() => currentFetchController.abort("Timeout"), timeout); try { if (attempts > 1) { console.log(`Retrying fetch ${url} (${attempts})...`); if (isForPlayback) updatePlayerUI(true, `Retrying (${attempts}/${retries})...`); await new Promise(resolve => setTimeout(resolve, 500 * attempts)); } const response = await fetch(url, { signal }); clearTimeout(timeoutId); if (!response.ok) throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`); if (signal.aborted) throw new Error(`Aborted before body: ${signal.reason}`); const arrayBuffer = await response.arrayBuffer(); if (signal.aborted) throw new Error(`Aborted after body: ${signal.reason}`); if (isForPlayback && currentFetchController === fetchAbortController) fetchAbortController = null; return arrayBuffer; } catch (error) { clearTimeout(timeoutId); if (error.name === 'AbortError') { console.warn(`Fetch aborted ${url}: ${error.message}`); if (isForPlayback && currentFetchController === fetchAbortController) fetchAbortController = null; throw error; } else console.error(`Fetch error ${url} (Attempt ${attempts}):`, error); if (attempts > retries) { if (isForPlayback && currentFetchController === fetchAbortController) fetchAbortController = null; throw new Error(`Fetch failed ${url} after ${retries + 1} attempts: ${error.message}`); } } } throw new Error(`Fetch failed ${url} unexpectedly.`); }
+        function cleanupPlaybackResources() { clearInterval(progressUpdateInterval); progressUpdateInterval = null; if (sourceNode) { try { sourceNode.onended = null; sourceNode.disconnect(); if (isPlaying || audioContext?.state === 'running') sourceNode.stop(); } catch (e) {} sourceNode = null; } if (fetchAbortController) { fetchAbortController.abort("Playback stopped/changed"); fetchAbortController = null; } }
+        function startPlayback(offset = 0) { if (!currentAudioBuffer || !audioContext || !gainNode) { stopPlayback(true); return; } if (audioContext.state === 'suspended') audioContext.resume().then(() => _performStartPlayback(offset)).catch(err => { stopPlayback(true); }); else _performStartPlayback(offset); }
+
+        // --- Simplified Playback Start ---
+        function _performStartPlayback(offset) {
+            if (!audioContext) return;
+            cleanupPlaybackResources(); // Clean previous source if any
+
+            sourceNode = audioContext.createBufferSource();
+            sourceNode.buffer = currentAudioBuffer;
+            sourceNode.playbackRate.value = currentPlaybackRate;
+
+            // *** Simple Connection: Source -> Gain -> Destination ***
+            sourceNode.connect(gainNode);
+
+            const validOffset = Math.max(0, Math.min(offset, currentAudioBuffer.duration));
+            _startOffset = validOffset;
+            _startTime = audioContext.currentTime;
+            _pausedTime = 0;
+
+            console.log(`Starting playback at offset: ${validOffset.toFixed(2)}s, Rate: ${currentPlaybackRate}`);
+            sourceNode.start(0, validOffset);
+            isPlaying = true;
+
+            sourceNode.onended = handleTrackEnd;
+            progressUpdateInterval = setInterval(updateProgress, 250);
+            updatePlayerUI();
         }
 
-         function applyMainViewMode() {
-            updateMainViewToggleButtons();
-            updateBreadcrumbs();
-            // Show/hide grid-list toggle (only for folder content or track list)
-             const showGridListToggle = (currentMainView === VIEW_MODE_FOLDER) || (currentMainView === VIEW_MODE_ARTIST && currentArtist && currentAlbum);
-             gridListToggleContainer.style.display = showGridListToggle ? 'flex' : 'none';
-         }
+        function stopPlayback(clearInfo = false) { if (isPlaying && sourceNode && audioContext) _pausedTime = getCurrentPlaybackTime(); isPlaying = false; cleanupPlaybackResources(); if (clearInfo) { currentPlayingFile = null; currentAudioBuffer = null; currentTrackIndex = -1; _startOffset = 0; _pausedTime = 0; nowPlayingEl.textContent = 'Not playing'; nowPlayingEl.title = 'Not playing'; nowPlayingArtistAlbumEl.textContent = 'Select an MP3 file'; nowPlayingPathEl.textContent = ''; albumArtImg.src = ''; albumArtImg.style.display = 'none'; albumArtIcon.classList.remove('hidden'); durationEl.textContent = '0:00'; currentTimeEl.textContent = '0:00'; progressBar.style.width = '0%'; miniProgressBar.style.setProperty('--progress-width', '0%'); updatePlayerUI(); updatePrevNextButtons(); } else if (currentAudioBuffer) { updatePlayerUI(); updateProgress(); } else updatePlayerUI(); }
+        function togglePlayback() { if (!currentAudioBuffer || !audioContext) return; if (isPlaying) stopPlayback(false); else { const resumeTime = (_pausedTime > 0 && currentAudioBuffer && _pausedTime < currentAudioBuffer.duration) ? _pausedTime : 0; startPlayback(resumeTime); } }
+        function getCurrentPlaybackTime() { if (!audioContext || !currentAudioBuffer) return 0; if (isPlaying && sourceNode && _startTime > 0) { const elapsedTime = audioContext.currentTime - _startTime; const progressedTime = elapsedTime * currentPlaybackRate; return Math.max(0, Math.min(currentAudioBuffer.duration, _startOffset + progressedTime)); } else return Math.max(0, Math.min(currentAudioBuffer?.duration || 0, _pausedTime)); }
+        function handleTrackEnd(event) { const endedNaturally = isPlaying && currentAudioBuffer && Math.abs(getCurrentPlaybackTime() - currentAudioBuffer.duration) < 0.1; if (currentAudioBuffer) _pausedTime = currentAudioBuffer.duration; _startTime = 0; const wasPlaying = isPlaying; isPlaying = false; cleanupPlaybackResources(); updateProgress(); updatePlayerUI(); if (wasPlaying && endedNaturally) { console.log("Playing next automatically."); playNext(); } else { console.log("Track stopped manually or ended unexpectedly."); } }
+        function seek(offsetSeconds) { if (!currentAudioBuffer || !audioContext) return; const currentPosition = getCurrentPlaybackTime(); let seekTime = currentPosition + offsetSeconds; seekTime = Math.max(0, Math.min(seekTime, currentAudioBuffer.duration)); console.log(`Seeking by ${offsetSeconds}s to: ${formatTime(seekTime)}`); _pausedTime = seekTime; if (isPlaying) startPlayback(seekTime); else { _startOffset = seekTime; updateProgress(); } }
+        function playNext() { if (!currentTracklist || currentTracklist.length === 0) return; let nextIndex = currentTrackIndex + 1; if (nextIndex >= currentTracklist.length) nextIndex = 0; if (currentTracklist[nextIndex]) playAudioFile(currentTracklist[nextIndex], currentTracklist); else stopPlayback(true); }
+        function playPrev() { if (!currentTracklist || currentTracklist.length === 0) return; if (getCurrentPlaybackTime() > 3 && currentTrackIndex !== -1) { startPlayback(0); return; } let prevIndex = currentTrackIndex - 1; if (prevIndex < 0) prevIndex = currentTracklist.length - 1; if (currentTracklist[prevIndex]) playAudioFile(currentTracklist[prevIndex], currentTracklist); else stopPlayback(true); }
 
-        function updateMainViewToggleButtons() { folderViewBtn.classList.toggle('active', currentMainView === VIEW_MODE_FOLDER); artistViewBtn.classList.toggle('active', currentMainView === VIEW_MODE_ARTIST); }
+        // --- Downloads (No changes needed) ---
+        async function triggerDownload() { if (!currentPlayingFile || !currentPlayingFile.path || downloadBtn.classList.contains('loading') || downloadBtn.disabled) return; await downloadSpecificTrack(currentPlayingFile.path, downloadBtn, currentPlayingFile.displayName); }
+        async function downloadSpecificTrack(filePath, buttonElement, displayName = '') { if (!filePath || !buttonElement || buttonElement.classList.contains('loading')) return; const fileUrl = `${archiveDownloadUrlBase}/${encodeURIComponent(filePath)}`; const filename = displayName || filePath.split('/').pop() || 'download.mp3'; const progressElement = buttonElement.querySelector('.download-progress'); const loaderElement = buttonElement.querySelector('.btn-loader'); const iconElement = buttonElement.querySelector('.btn-icon'); console.log(`Initiating download for: ${filename} (${filePath})`); buttonElement.classList.add('loading'); buttonElement.disabled = true; if (progressElement) progressElement.textContent = '0%'; if (loaderElement) loaderElement.style.display = 'inline-block'; if(iconElement) iconElement.style.opacity = 0; const downloadController = new AbortController(); activeDownloads.set(filePath, downloadController); try { const response = await fetch(fileUrl, { signal: downloadController.signal }); if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`); if (!response.body) throw new Error("ReadableStream not supported."); const contentLength = response.headers.get('content-length'); const totalBytes = contentLength ? parseInt(contentLength, 10) : 0; let receivedBytes = 0; const reader = response.body.getReader(); const chunks = []; while (true) { if (downloadController.signal.aborted) throw new Error("Download aborted."); const { done, value } = await reader.read(); if (done) break; chunks.push(value); receivedBytes += value.length; if (totalBytes > 0) { const percent = Math.floor((receivedBytes / totalBytes) * 100); if (progressElement) progressElement.textContent = `${percent}%`; } else { if (progressElement) progressElement.textContent = formatFileSize(receivedBytes); } } if (downloadController.signal.aborted) throw new Error("Download aborted."); console.log(`Download complete: ${filename}. ${receivedBytes} bytes.`); if (progressElement) progressElement.textContent = '100%'; const blob = new Blob(chunks); const blobUrl = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = blobUrl; link.download = filename; document.body.appendChild(link); link.click(); document.body.removeChild(link); setTimeout(() => URL.revokeObjectURL(blobUrl), 100); } catch (error) { if (error.name === 'AbortError') { console.log(`Download aborted: ${filename}`, error.message); if (progressElement) progressElement.textContent = 'X'; } else { console.error(`Download failed: ${filename}`, error); alert(`Failed to download "${filename}".\nError: ${error.message}`); if (progressElement) progressElement.textContent = 'ERR'; } } finally { activeDownloads.delete(filePath); buttonElement.classList.remove('loading'); buttonElement.disabled = false; if (loaderElement) loaderElement.style.display = 'none'; if(iconElement) iconElement.style.opacity = 1; setTimeout(() => { if (progressElement && (progressElement.textContent === 'ERR' || progressElement.textContent === 'X')) progressElement.textContent = '0%'; }, 2000); } }
+        function cancelDownload(filePath) { if (activeDownloads.has(filePath)) { activeDownloads.get(filePath).abort(); console.log(`Attempted cancel: ${filePath}`); } }
 
-        // --- View Mode Switching (Layout: Grid/List) ---
-        function setLayoutMode(mode) {
-            if (mode === currentLayoutMode) return;
-            currentLayoutMode = mode;
-            saveSetting('layoutMode', mode);
-            applyLayoutMode();
-            rerenderCurrentView(); // Re-render with new layout
+        // --- UI Updates (Removed effect button logic) ---
+        function updatePlayerUI(isLoading = false, loadingMessage = 'Loading...') {
+            const hasActiveTrack = !!currentPlayingFile; const hasBuffer = !!currentAudioBuffer; const canControl = hasActiveTrack && hasBuffer && !isLoading;
+            playPauseBtn.disabled = !hasActiveTrack || isLoading || !audioContext; pitchSlider.disabled = !canControl; downloadBtn.disabled = !canControl || downloadBtn.classList.contains('loading'); volumeSlider.disabled = !audioContext;
+            updatePrevNextButtons();
+            // Removed effect button update logic
+
+            if (isLoading) { albumArtLoader.classList.add('visible'); albumArtIcon.classList.add('hidden'); albumArtImg.classList.remove('loaded'); albumArtImg.src = ''; albumArtImg.style.display = 'none'; nowPlayingEl.textContent = currentPlayingFile?.displayName || 'Loading...'; nowPlayingEl.title = currentPlayingFile?.displayName || 'Loading...'; nowPlayingArtistAlbumEl.textContent = loadingMessage; nowPlayingArtistAlbumEl.title = loadingMessage; if (currentPlayingFile?.path) { const pathParts = currentPlayingFile.path.split('/').filter(p => p); pathParts.pop(); nowPlayingPathEl.textContent = pathParts.join(' / '); } else nowPlayingPathEl.textContent = ''; if (playPauseIcon) playPauseIcon.className = 'fas fa-spinner fa-spin'; durationEl.textContent = '--:--'; currentTimeEl.textContent = '--:--'; progressBar.style.width = '0%'; miniProgressBar.style.setProperty('--progress-width', '0%'); }
+            else if (hasActiveTrack && hasBuffer) { albumArtLoader.classList.remove('visible'); if (playPauseIcon) playPauseIcon.className = isPlaying ? 'fas fa-pause' : 'fas fa-play'; durationEl.textContent = formatTime(currentAudioBuffer.duration); updateProgress(); }
+            else { albumArtLoader.classList.remove('visible'); albumArtImg.classList.remove('loaded'); albumArtImg.src = ''; albumArtImg.style.display = 'none'; albumArtIcon.classList.remove('hidden'); nowPlayingEl.textContent = 'Not playing'; nowPlayingEl.title = 'Not playing'; nowPlayingArtistAlbumEl.textContent = 'Select an MP3 file'; nowPlayingArtistAlbumEl.title = 'Select an MP3 file'; nowPlayingPathEl.textContent = ''; if (playPauseIcon) playPauseIcon.className = 'fas fa-play'; playPauseBtn.disabled = true; pitchSlider.disabled = true; downloadBtn.disabled = true; prevBtn.disabled = true; nextBtn.disabled = true; durationEl.textContent = '0:00'; currentTimeEl.textContent = '0:00'; progressBar.style.width = '0%'; miniProgressBar.style.setProperty('--progress-width', '0%'); }
         }
-        function applyLayoutMode() { gridViewBtn.classList.toggle('active', currentLayoutMode === 'grid'); listViewBtn.classList.toggle('active', currentLayoutMode === 'list'); skeletonLoaderEl.className = `file-browser-${currentLayoutMode} visible`; } // Apply to skeleton too
+        function updateProgress() { if (!audioContext || !currentAudioBuffer || !isFinite(currentAudioBuffer.duration)) { currentTimeEl.textContent = '0:00'; progressBar.style.width = '0%'; miniProgressBar.style.setProperty('--progress-width', `0%`); return; } const currentPosition = getCurrentPlaybackTime(); const duration = currentAudioBuffer.duration; currentTimeEl.textContent = formatTime(currentPosition); if(durationEl.textContent === '--:--' || durationEl.textContent === '0:00') durationEl.textContent = formatTime(duration); const progressPercent = (duration > 0) ? (currentPosition / duration) * 100 : 0; const progressWidth = `${Math.min(100, Math.max(0, progressPercent))}%`; if (progressBar.style.width !== progressWidth) progressBar.style.width = progressWidth; if (miniProgressBar.style.getPropertyValue('--progress-width') !== progressWidth) miniProgressBar.style.setProperty('--progress-width', progressWidth); }
+        function updateFileDurationInList(filePath, durationSeconds) { if (currentLayoutMode !== 'list' || !durationSeconds || !isFinite(durationSeconds)) return; const durationStr = formatTime(durationSeconds); const escapedPath = CSS.escape(filePath); const durationElement = fileBrowserContainerEl.querySelector(`.file-duration-list[data-path="${escapedPath}"]`); if (durationElement && durationElement.textContent !== durationStr) durationElement.textContent = durationStr; }
+        function updateVolumeIcon(volume) { if (!volumeIcon) return; if (volume <= 0) volumeIcon.className = 'fas fa-volume-mute'; else if (volume < 0.5) volumeIcon.className = 'fas fa-volume-down'; else volumeIcon.className = 'fas fa-volume-up'; }
+        function updatePrevNextButtons() { const canNavigate = currentTracklist && currentTracklist.length > 0 && currentTrackIndex !== -1; prevBtn.disabled = !canNavigate; nextBtn.disabled = !canNavigate; }
 
-        // --- Re-rendering Logic ---
-        function rerenderCurrentView() {
-             showSkeletonLoader(true); fileBrowserContainerEl.innerHTML = '';
-             requestAnimationFrame(() => {
-                 if (searchBox.value) { handleSearch(); }
-                 else if (currentMainView === VIEW_MODE_ARTIST) {
-                     if (currentArtist && currentAlbum) renderTrackListForArtist(currentArtist, currentAlbum);
-                     else if (currentArtist) renderAlbumList(currentArtist);
-                     else renderArtistList();
-                 } else { updateDirectoryView(currentDirectory); } // Re-render folder view
-                 // Skeletons hidden by render functions
-             });
-        }
+        // --- Minimizable Player (No changes needed) ---
+        function togglePlayerMinimized() { isPlayerMinimized = !isPlayerMinimized; applyMinimizedState(); saveSetting('playerMinimized', isPlayerMinimized); }
+        function applyMinimizedState() { const toggleIcon = playerToggleBtn.querySelector('.toggle-icon i'); if (isPlayerMinimized) { playerSection.classList.add('minimized'); if (toggleIcon) toggleIcon.className = 'fas fa-chevron-up'; playerToggleBtn.title = "Expand Player"; } else { playerSection.classList.remove('minimized'); if (toggleIcon) toggleIcon.className = 'fas fa-chevron-down'; playerToggleBtn.title = "Minimize Player"; } }
 
+        // --- Helpers (No changes needed) ---
+        function formatTime(seconds) { if (isNaN(seconds) || !isFinite(seconds) || seconds < 0) return '0:00'; const totalSeconds = Math.floor(seconds); const mins = Math.floor(totalSeconds / 60); const secs = totalSeconds % 60; return `${mins}:${secs.toString().padStart(2, '0')}`; }
+        function showSearchHintIfNeeded() { if (localStorage.getItem('searchHintDismissed') !== 'true') { setTimeout(() => searchHintPopup?.classList.add('visible'), 1500); } }
+        function dismissSearchHint() { if (!searchHintPopup) return; searchHintPopup.style.opacity = '0'; setTimeout(() => searchHintPopup.classList.remove('visible'), 300); try { localStorage.setItem('searchHintDismissed', 'true'); } catch (e) {} }
 
-        // --- Rendering Functions (Folder View) ---
-        function updateDirectoryView(path) {
-             if (currentMainView !== VIEW_MODE_FOLDER) { console.warn("updateDirectoryView called while not in folder view"); return; } // Safety check
-             showSkeletonLoader(true); fileBrowserContainerEl.innerHTML = '';
-             currentDirectory = path;
-             currentArtist = null; currentAlbum = null; // Reset other view states
-             if (searchBox.value) { searchBox.value = ''; toggleSearch(false);} // Clear search
-
-             updateBreadcrumbs();
-             const items = getItemsInDirectory(allArchiveFiles, path);
-             currentDirectoryItems = items;
-             currentTracklist = items.filter(item => item.isAudio);
-             currentTrackIndex = currentPlayingFile ? currentTracklist.findIndex(track => track.path === currentPlayingFile.path) : -1;
-
-             requestAnimationFrame(() => {
-                 renderFileBrowser(items); // Use the generic renderer for files/folders
-                 hideSkeletonLoader();
-                 updatePrevNextButtons();
-                  if (items.length === 0) displayStatus("This directory is empty.", false);
-                  else hideLoading();
-             });
-        }
-
-        // *** CORRECTED getItemsInDirectory ***
-        function getItemsInDirectory(allItems, dirPath) {
-            const items = new Map(); // Use a Map to automatically handle duplicates (e.g., explicit dir + implicit)
-            const dirPathLength = dirPath.length;
-
-            allItems.forEach(item => {
-                // Skip self or items not starting with the path
-                if (!item.path.startsWith(dirPath) || item.path === dirPath) return;
-
-                const relativePath = item.path.substring(dirPathLength); // Path relative to current dir
-                const slashIndex = relativePath.indexOf('/');
-
-                if (slashIndex === -1) {
-                    // Item is directly in this directory (e.g., "file.mp3")
-                    // It cannot be an implicit directory at this point.
-                    if (!item.isDirectory) { // Only add files here
-                         items.set(item.path, item);
-                    }
-                    // We handle explicit directory entries (like 'folder/') via the 'else' block logic now
-                } else {
-                    // Item is deeper (e.g., "folder/file.mp3" or "folder/subfolder/")
-                    const firstPart = relativePath.substring(0, slashIndex); // The name of the immediate subdirectory ("folder")
-                    const subDirPath = dirPath + firstPart + '/'; // Construct the full path for this subdirectory ("root/folder/")
-
-                    // Check if we've already added this subdirectory
-                    if (!items.has(subDirPath)) {
-                        // Try to find an *explicit* entry for this subdirectory in the master list
-                        // We rely on processRawFiles having marked implicit dirs correctly now
-                        let dirEntry = allItems.find(d => d.path === subDirPath && d.isDirectory);
-
-                        if (dirEntry) {
-                            // Found an explicit entry, use it
-                            items.set(subDirPath, dirEntry);
-                        } else {
-                            // *** Synthesis Step (Fallback) ***
-                            // No explicit entry found, but we know items exist within it.
-                            // This might happen if processRawFiles missed an implicit dir.
-                            // console.log(`Synthesizing directory entry for missing: ${subDirPath}`); // Keep for debug
-                            items.set(subDirPath, {
-                                name: subDirPath, // Internal name/key
-                                path: subDirPath, // Path for navigation
-                                displayName: firstPart, // User-visible name
-                                isDirectory: true,
-                                isAudio: false,
-                                size: 0, // Size unknown/irrelevant
-                                format: 'Directory (Synthesized)' // Mark for debugging if needed
-                            });
-                        }
-                    }
-                     // Handle explicit directories listed like "folder/subfolder/" that are direct children
-                     if (item.isDirectory && item.path.endsWith('/') && slashIndex === (relativePath.length - 1)) {
-                         if (!items.has(item.path)) { // Add if not already added by other logic
-                            items.set(item.path, item);
-                         }
-                     }
-                }
-            });
-
-            // Sort results: folders first, then files, alphabetically using displayName
-            return Array.from(items.values()).sort((a, b) => {
-                if (a.isDirectory && !b.isDirectory) return -1;
-                if (!a.isDirectory && b.isDirectory) return 1;
-                 const nameA = a.displayName || '';
-                 const nameB = b.displayName || '';
-                return nameA.localeCompare(nameB);
-            });
-        }
-
-
-        // --- Rendering Functions (Artist View) ---
-         function renderArtistList() { /* ... same as before ... */ if (currentMainView !== VIEW_MODE_ARTIST) return; showSkeletonLoader(true); fileBrowserContainerEl.innerHTML = ''; currentArtist = null; currentAlbum = null; updateBreadcrumbs(); if (!isArtistsDataBuilt) { displayStatus("Building artist data..."); return; } if (Object.keys(artistsData).length === 0) { displayStatus("No artist information found.", false); hideSkeletonLoader(); return; } const itemsToRender = Object.keys(artistsData).map(artistName => ({ name: artistName, isArtist: true, itemCount: Object.keys(artistsData[artistName]._albums).length })); currentDirectoryItems = itemsToRender; currentTracklist = []; currentTrackIndex = -1; updatePrevNextButtons(); requestAnimationFrame(() => { renderArtistAlbumBrowser(itemsToRender); hideSkeletonLoader(); hideLoading(); }); }
-         function renderAlbumList(artistName) { /* ... same as before ... */ if (currentMainView !== VIEW_MODE_ARTIST || !artistsData[artistName]) return; showSkeletonLoader(true); fileBrowserContainerEl.innerHTML = ''; currentArtist = artistName; currentAlbum = null; updateBreadcrumbs(); const albums = artistsData[artistName]._albums; if (Object.keys(albums).length === 0) { displayStatus(`No albums found for ${artistName}.`, false); hideSkeletonLoader(); return; } const itemsToRender = Object.keys(albums).map(albumName => ({ name: albumName, isAlbum: true, itemCount: albums[albumName].length })); currentDirectoryItems = itemsToRender; currentTracklist = []; currentTrackIndex = -1; updatePrevNextButtons(); requestAnimationFrame(() => { renderArtistAlbumBrowser(itemsToRender); hideSkeletonLoader(); hideLoading(); }); }
-         function renderTrackListForArtist(artistName, albumName) { /* ... same as before ... */ if (currentMainView !== VIEW_MODE_ARTIST || !artistsData[artistName]?._albums[albumName]) return; showSkeletonLoader(true); fileBrowserContainerEl.innerHTML = ''; currentArtist = artistName; currentAlbum = albumName; updateBreadcrumbs(); const tracks = artistsData[artistName]._albums[albumName]; if (tracks.length === 0) { displayStatus(`No tracks found for ${albumName}.`, false); hideSkeletonLoader(); return; } currentDirectoryItems = tracks; currentTracklist = tracks; currentTrackIndex = currentPlayingFile ? currentTracklist.findIndex(track => track.path === currentPlayingFile.path) : -1; updatePrevNextButtons(); requestAnimationFrame(() => { renderFileBrowser(tracks); hideSkeletonLoader(); hideLoading(); }); }
-
-
-        // --- Combined Rendering Dispatchers ---
-        function renderFileBrowser(items) { /* Renders Folders & Files */ fileBrowserContainerEl.innerHTML = ''; fileBrowserContainerEl.className = ''; if (currentLayoutMode === 'list') { fileBrowserContainerEl.classList.add('file-browser-list'); renderFileBrowserList(items); } else { fileBrowserContainerEl.classList.add('file-browser-grid'); renderFileBrowserGrid(items); } }
-        function renderArtistAlbumBrowser(items) { /* Renders Artists or Albums */ fileBrowserContainerEl.innerHTML = ''; fileBrowserContainerEl.className = ''; if (currentLayoutMode === 'list') { fileBrowserContainerEl.classList.add('file-browser-list'); renderArtistAlbumList(items); } else { fileBrowserContainerEl.classList.add('file-browser-grid'); renderArtistAlbumGrid(items); } }
-
-
-        // --- Grid View Rendering ---
-        function renderFileBrowserGrid(items) { /* Renders files/folders */ /* ... same ... */ items.forEach(item => { const itemEl = document.createElement('div'); itemEl.className = 'file-item-grid'; itemEl.dataset.path = item.path; const icon = document.createElement('div'); icon.className = 'file-icon-grid'; const nameEl = document.createElement('div'); nameEl.className = 'file-name-grid'; nameEl.textContent = item.displayName || '[No Name]'; nameEl.title = item.displayName || item.path; const infoEl = document.createElement('div'); infoEl.className = 'file-info-grid'; if (item.isDirectory) { icon.textContent = '📁'; icon.classList.add('folder'); itemEl.addEventListener('click', () => updateDirectoryView(item.path)); infoEl.textContent = 'Folder'; } else if (item.isAudio) { icon.textContent = '🎵'; itemEl.addEventListener('click', () => playAudioFile(item, currentTracklist)); infoEl.textContent = formatFileSize(item.size); } itemEl.appendChild(icon); itemEl.appendChild(nameEl); itemEl.appendChild(infoEl); fileBrowserContainerEl.appendChild(itemEl); }); }
-        function renderArtistAlbumGrid(items) { /* Renders artists/albums */ /* ... same ... */ items.forEach(item => { const itemEl = document.createElement('div'); itemEl.className = 'file-item-grid'; itemEl.dataset.name = item.name; const icon = document.createElement('div'); icon.className = 'file-icon-grid'; const nameEl = document.createElement('div'); nameEl.className = 'file-name-grid'; nameEl.textContent = item.name; nameEl.title = item.name; const infoEl = document.createElement('div'); infoEl.className = 'file-info-grid'; if (item.isArtist) { icon.textContent = '👤'; icon.classList.add('artist'); itemEl.addEventListener('click', () => renderAlbumList(item.name)); infoEl.textContent = `${item.itemCount} Album${item.itemCount !== 1 ? 's' : ''}`; } else if (item.isAlbum) { icon.textContent = '💿'; icon.classList.add('album'); itemEl.addEventListener('click', () => renderTrackListForArtist(currentArtist, item.name)); infoEl.textContent = `${item.itemCount} Track${item.itemCount !== 1 ? 's' : ''}`; } itemEl.appendChild(icon); itemEl.appendChild(nameEl); itemEl.appendChild(infoEl); fileBrowserContainerEl.appendChild(itemEl); }); }
-
-        // --- List View Rendering ---
-        function renderFileBrowserList(items) { /* Renders files/folders */ /* ... same ... */ items.forEach(item => { const itemEl = document.createElement('div'); itemEl.className = `file-item-list ${item.isAudio || item.isDirectory ? '' : 'non-interactive'}`; itemEl.dataset.path = item.path; const icon = document.createElement('div'); icon.className = 'file-icon-list'; const nameEl = document.createElement('div'); nameEl.className = 'file-name-list'; nameEl.textContent = item.title || item.displayName || '[No Name]'; nameEl.title = item.displayName || item.path; const infoEl = document.createElement('div'); infoEl.className = 'file-info-list'; const durationEl = document.createElement('span'); durationEl.className = 'file-duration-list'; const sizeEl = document.createElement('span'); sizeEl.className = 'file-size-list'; if (item.isDirectory) { icon.textContent = '📁'; icon.classList.add('folder'); itemEl.addEventListener('click', () => updateDirectoryView(item.path)); sizeEl.textContent = 'Folder'; } else if (item.isAudio) { icon.textContent = '🎵'; itemEl.addEventListener('click', () => playAudioFile(item, currentTracklist)); durationEl.textContent = item.duration ? formatTime(item.duration) : '--:--'; durationEl.dataset.path = item.path; sizeEl.textContent = formatFileSize(item.size); } else { icon.textContent = '📄'; sizeEl.textContent = formatFileSize(item.size); } itemEl.appendChild(icon); itemEl.appendChild(nameEl); infoEl.appendChild(durationEl); infoEl.appendChild(sizeEl); itemEl.appendChild(infoEl); fileBrowserContainerEl.appendChild(itemEl); }); }
-        function renderArtistAlbumList(items) { /* Renders artists/albums */ /* ... same ... */ items.forEach(item => { const itemEl = document.createElement('div'); itemEl.className = 'file-item-list'; itemEl.dataset.name = item.name; const icon = document.createElement('div'); icon.className = 'file-icon-list'; const nameEl = document.createElement('div'); nameEl.className = 'file-name-list'; nameEl.textContent = item.name; nameEl.title = item.name; const infoEl = document.createElement('div'); infoEl.className = 'file-info-list'; const countEl = document.createElement('span'); countEl.className = 'file-item-count'; if (item.isArtist) { icon.textContent = '👤'; icon.classList.add('artist'); itemEl.addEventListener('click', () => renderAlbumList(item.name)); countEl.textContent = `${item.itemCount} Album${item.itemCount !== 1 ? 's' : ''}`; } else if (item.isAlbum) { icon.textContent = '💿'; icon.classList.add('album'); itemEl.addEventListener('click', () => renderTrackListForArtist(currentArtist, item.name)); countEl.textContent = `${item.itemCount} Track${item.itemCount !== 1 ? 's' : ''}`; } itemEl.appendChild(icon); itemEl.appendChild(nameEl); infoEl.appendChild(countEl); itemEl.appendChild(infoEl); fileBrowserContainerEl.appendChild(itemEl); }); }
-
-        function formatFileSize(bytes) { /* ... same ... */ if (bytes === undefined || bytes === null || bytes < 0) return ''; if (bytes === 0) return '0 B'; if (bytes < 1024) return bytes + ' B'; const i = Math.floor(Math.log(bytes) / Math.log(1024)); const units = ['B', 'KB', 'MB', 'GB', 'TB']; const unitIndex = Math.min(i, units.length - 1); const fixedDigits = unitIndex >= 2 ? 1 : 0; return parseFloat((bytes / Math.pow(1024, unitIndex)).toFixed(fixedDigits)) + ' ' + units[unitIndex];}
-
-        // --- Breadcrumbs ---
-        function updateBreadcrumbs() { /* ... same logic ... */ directoryPathEl.innerHTML = ''; if (currentMainView === VIEW_MODE_ARTIST) { const artistsCrumb = createArtistCrumb('Artists', null, null, !currentArtist && !currentAlbum); directoryPathEl.appendChild(artistsCrumb); if (currentArtist) { addSeparator(); const artistCrumb = createArtistCrumb(currentArtist, currentArtist, null, !currentAlbum); directoryPathEl.appendChild(artistCrumb); } if (currentAlbum) { addSeparator(); const albumCrumb = createArtistCrumb(currentAlbum, currentArtist, currentAlbum, true); directoryPathEl.appendChild(albumCrumb); } } else { const rootCrumb = createFolderCrumb('Root', '', currentDirectory === ''); directoryPathEl.appendChild(rootCrumb); const parts = currentDirectory.split('/').filter(part => part !== ''); let pathAccumulator = ''; parts.forEach((part) => { pathAccumulator += part + '/'; addSeparator(); const crumb = createFolderCrumb(part, pathAccumulator, pathAccumulator === currentDirectory); directoryPathEl.appendChild(crumb); }); } }
-        function addSeparator() { const separator = document.createElement('span'); separator.className = 'directory-separator'; separator.textContent = '›'; directoryPathEl.appendChild(separator); }
-        function createFolderCrumb(text, path, isCurrent) { /* ... same ... */ const crumb = document.createElement('span'); crumb.className = `directory-crumb ${isCurrent ? 'current' : ''}`; crumb.textContent = text; if (!isCurrent) { crumb.addEventListener('click', () => updateDirectoryView(path)); } return crumb; }
-        function createArtistCrumb(text, artist, album, isCurrent) { /* ... same ... */ const crumb = document.createElement('span'); crumb.className = `directory-crumb ${isCurrent ? 'current' : ''}`; crumb.textContent = text; if (!isCurrent) { crumb.addEventListener('click', () => { if (artist && album) { renderAlbumList(artist); } else if (artist) { renderArtistList(); } else { renderArtistList(); } }); } return crumb; }
-
-
-        // --- Search Functionality ---
-        function toggleSearch(forceState) { /* ... same ... */ const activate = forceState !== undefined ? forceState : !searchContainer.classList.contains('active'); if (activate) { searchContainer.classList.add('active'); searchBox.focus(); } else { searchContainer.classList.remove('active'); searchBox.blur(); } }
-        function handleSearch() { /* ... same logic, searches flat files ... */ showSkeletonLoader(true); fileBrowserContainerEl.innerHTML = ''; const searchTerm = searchBox.value.toLowerCase().trim(); if (!searchTerm) { applyMainViewMode(); rerenderCurrentView(); return; } const results = allArchiveFiles.filter(file => !file.isDirectory && file.isAudio && (file.path.toLowerCase().includes(searchTerm) || (file.title && file.title.toLowerCase().includes(searchTerm)) || (file.artist && file.artist.toLowerCase().includes(searchTerm)) || (file.album && file.album.toLowerCase().includes(searchTerm))) ).sort((a, b) => (a.title || a.displayName).localeCompare(b.title || b.displayName)); currentDirectoryItems = results; currentTracklist = results; currentTrackIndex = currentPlayingFile ? currentTracklist.findIndex(track => track.path === currentPlayingFile.path) : -1; updatePrevNextButtons(); directoryPathEl.innerHTML = ''; const searchCrumb = createFolderCrumb(`Search: "${searchTerm}"`, '', true); directoryPathEl.appendChild(searchCrumb); gridListToggleContainer.style.display = 'flex'; requestAnimationFrame(() => { renderFileBrowser(results); hideSkeletonLoader(); if (results.length === 0) displayStatus(`No results found for "${searchTerm}".`, false); else hideLoading(); }); }
-
-
-        // --- Metadata Handling ---
-        async function getMetadataFromTags(file, arrayBuffer) { /* ... same ... */ return new Promise((resolve) => { if (typeof jsmediatags === 'undefined') { resolve({}); return; } jsmediatags.read(new Blob([arrayBuffer]), { onSuccess: (tag) => resolve({ title: tag.tags.title, artist: tag.tags.artist, album: tag.tags.album, picture: tag.tags.picture }), onError: (error) => { console.warn('jsmediatags error:', file?.path, error.type); resolve({}); } }); }); }
-        function displayMetadataInPlayer(metadata) { /* ... same ... */ const title = metadata?.title || currentPlayingFile?.title || currentPlayingFile?.displayName || 'Unknown Title'; const artist = metadata?.artist || currentPlayingFile?.artist || UNKNOWN_ARTIST; const album = metadata?.album || currentPlayingFile?.album || UNKNOWN_ALBUM; nowPlayingEl.textContent = title; nowPlayingEl.title = title; let artistAlbumText = artist === UNKNOWN_ARTIST ? album : (album === UNKNOWN_ALBUM ? artist : `${artist} • ${album}`); if (artist === UNKNOWN_ARTIST && album === UNKNOWN_ALBUM) { artistAlbumText = 'Unknown Artist / Album'; } nowPlayingArtistAlbumEl.textContent = artistAlbumText; nowPlayingArtistAlbumEl.title = artistAlbumText; const pathParts = currentPlayingFile?.path?.split('/').filter(p => p); pathParts?.pop(); nowPlayingPathEl.textContent = pathParts?.length > 0 ? pathParts.join('/') : ''; nowPlayingPathEl.title = currentPlayingFile?.path || ''; albumArtLoader.classList.remove('visible'); albumArtIcon.classList.remove('hidden'); albumArtImg.classList.remove('loaded'); albumArtImg.src = ''; if (metadata?.picture) { try { const { data, format } = metadata.picture; let base64String = ""; for (let i = 0; i < data.length; i++) base64String += String.fromCharCode(data[i]); const imageUrl = `data:${format};base64,${window.btoa(base64String)}`; albumArtImg.onload = () => albumArtImg.classList.add('loaded'); albumArtImg.onerror = () => albumArtIcon.classList.remove('hidden'); albumArtImg.src = imageUrl; albumArtIcon.classList.add('hidden'); } catch (e) { console.error("Error displaying album art:", e); albumArtIcon.classList.remove('hidden'); } } }
-
-        // --- Caching Logic ---
-        function manageCache(filePath, data) { /* ... same ... */ if (audioCache.size >= MAX_CACHE_SIZE) { const oldestPath = cacheOrder.shift(); if (oldestPath) { audioCache.delete(oldestPath); } } audioCache.set(filePath, { ...data, timestamp: Date.now() }); cacheOrder.push(filePath); }
-        function clearCache() { /* ... same ... */ audioCache.clear(); cacheOrder.length = 0; console.log("Audio cache cleared."); }
-
-
-        // --- Audio Playback (Modified for context) ---
-         async function playAudioFile(file, contextTracklist) { /* ... same, uses contextTracklist ... */ if (!file || !file.isAudio) return; if (!audioContext) { alert("Audio system not ready. Click page first."); return; } currentTracklist = contextTracklist || []; console.log("Playing:", file.path, "Context tracklist size:", currentTracklist.length); stopPlayback(); currentPlayingFile = file; currentTrackIndex = currentTracklist.findIndex(track => track.path === file.path); updatePlayerUI(true, 'Connecting...'); if (audioCache.has(file.path)) { console.log("Playing from cache:", file.path); const cachedData = audioCache.get(file.path); currentAudioBuffer = cachedData.buffer; currentPlayingFile.metadata = cachedData.metadata; currentPlayingFile.title = cachedData.metadata?.title || currentPlayingFile.title; currentPlayingFile.artist = cachedData.metadata?.artist || currentPlayingFile.artist; currentPlayingFile.album = cachedData.metadata?.album || currentPlayingFile.album; currentPlayingFile.duration = currentAudioBuffer.duration; displayMetadataInPlayer(cachedData.metadata); startPlayback(0); updatePlayerUI(); updatePrevNextButtons(); updateFileDurationInList(file.path, currentAudioBuffer.duration); return; } updatePlayerUI(true, 'Downloading...'); albumArtLoader.classList.add('visible'); albumArtIcon.classList.add('hidden'); albumArtImg.classList.remove('loaded'); albumArtImg.src = ''; try { const arrayBuffer = await fetchWithTimeoutAndRetry(`${archiveDownloadUrlBase}/${encodeURIComponent(file.path)}`, FETCH_TIMEOUT_MS, MAX_RETRIES); if (!currentPlayingFile || file.path !== currentPlayingFile.path) return; updatePlayerUI(true, 'Decoding...'); const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0)); if (!currentPlayingFile || file.path !== currentPlayingFile.path) return; currentAudioBuffer = decodedBuffer; currentPlayingFile.duration = currentAudioBuffer.duration; updatePlayerUI(true, 'Reading Tags...'); const tagsMetadata = await getMetadataFromTags(file, arrayBuffer); currentPlayingFile.metadata = tagsMetadata; currentPlayingFile.title = tagsMetadata?.title || currentPlayingFile.title; currentPlayingFile.artist = tagsMetadata?.artist || currentPlayingFile.artist; currentPlayingFile.album = tagsMetadata?.album || currentPlayingFile.album; manageCache(file.path, { buffer: currentAudioBuffer, metadata: tagsMetadata }); displayMetadataInPlayer(tagsMetadata); startPlayback(0); updatePlayerUI(); updatePrevNextButtons(); updateFileDurationInList(file.path, currentAudioBuffer.duration); } catch (error) { console.error(`Error processing audio file ${file.path}:`, error); if (currentPlayingFile && file.path === currentPlayingFile.path) { stopPlayback(true); displayStatus(`Error playing ${file.displayName || file.path}: ${error.message}`, true); } albumArtLoader.classList.remove('visible'); albumArtIcon.classList.remove('hidden'); } }
-        async function fetchWithTimeoutAndRetry(url, timeout, retries) { /* ... same ... */ let attempts = 0; while (attempts <= retries) { attempts++; if (fetchAbortController) { fetchAbortController.abort("New fetch requested"); } fetchAbortController = new AbortController(); const { signal } = fetchAbortController; const timeoutId = setTimeout(() => { console.log(`Fetch timeout triggered for ${url}`); fetchAbortController.abort("Timeout"); }, timeout); try { if (attempts > 1) { console.log(`Retrying fetch for ${url} (Attempt ${attempts})...`); updatePlayerUI(true, `Retrying (${attempts}/${retries})...`); await new Promise(resolve => setTimeout(resolve, 500)); } const response = await fetch(url, { signal }); clearTimeout(timeoutId); if (!response.ok) { throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`); } const arrayBuffer = await response.arrayBuffer(); fetchAbortController = null; return arrayBuffer; } catch (error) { clearTimeout(timeoutId); fetchAbortController = null; if (error.name === 'AbortError') { console.error(`Fetch aborted for ${url}: ${error.message}`); if (error.message === "Timeout" && attempts > retries) throw new Error(`Fetch timed out after ${retries + 1} attempts.`); } else { console.error(`Fetch error for ${url}:`, error); } if (attempts > retries) throw error; } } throw new Error("Fetch failed after multiple retries."); }
-
-         function cleanupPlaybackResources() { /* ... same ... */ clearInterval(progressUpdateInterval); progressUpdateInterval = null; if (sourceNode) { try { sourceNode.onended = null; sourceNode.stop(); } catch (e) {} sourceNode.disconnect(); sourceNode = null; } if (fetchAbortController) { fetchAbortController.abort("Playback stopped"); fetchAbortController = null; } }
-         function startPlayback(offset = 0) { /* ... same ... */ if (!currentAudioBuffer || !audioContext || !gainNode) return; cleanupPlaybackResources(); sourceNode = audioContext.createBufferSource(); sourceNode.buffer = currentAudioBuffer; sourceNode.playbackRate.value = currentPlaybackRate; sourceNode.connect(gainNode); const validOffset = Math.max(0, Math.min(offset, currentAudioBuffer.duration)); _startOffset = validOffset; _startTime = audioContext.currentTime; _pausedTime = 0; sourceNode.start(0, validOffset); isPlaying = true; sourceNode.onended = handleTrackEnd; progressUpdateInterval = setInterval(updateProgress, 250); updatePlayerUI(); }
-         function stopPlayback(clearInfo = false) { /* ... same ... */ if (isPlaying) { _pausedTime = getCurrentPlaybackTime(); } isPlaying = false; cleanupPlaybackResources(); if (clearInfo) { currentPlayingFile = null; currentAudioBuffer = null; currentTrackIndex = -1; _startOffset = 0; _pausedTime = 0; updatePlayerUI(); updatePrevNextButtons(); } else if (currentAudioBuffer) { updatePlayerUI(); updateProgress(); } else { updatePlayerUI(); } }
-         function togglePlayback() { /* ... same ... */ if (!currentAudioBuffer || !audioContext) return; if (isPlaying) { stopPlayback(false); } else { const resumeTime = (_pausedTime > 0 && _pausedTime < currentAudioBuffer.duration) ? _pausedTime : 0; startPlayback(resumeTime); } }
-         function getCurrentPlaybackTime() { /* ... same ... */ if (!audioContext || !currentAudioBuffer) return 0; if (isPlaying && sourceNode && _startTime > 0) { const elapsedTime = audioContext.currentTime - _startTime; return Math.max(0, Math.min(currentAudioBuffer.duration, _startOffset + (elapsedTime * currentPlaybackRate))); } else { return Math.max(0, Math.min(currentAudioBuffer?.duration || 0, _pausedTime)); } }
-         function handleTrackEnd() { /* ... same ... */ console.log("Track ended naturally."); _startOffset = 0; _pausedTime = currentAudioBuffer ? currentAudioBuffer.duration : 0; _startTime = 0; isPlaying = false; cleanupPlaybackResources(); updateProgress(); updatePlayerUI(); playNext(); }
-         function seek(offsetSeconds) { /* ... same ... */ if (!currentAudioBuffer || !audioContext) return; const currentPosition = getCurrentPlaybackTime(); let seekTime = currentPosition + offsetSeconds; seekTime = Math.max(0, Math.min(seekTime, currentAudioBuffer.duration)); console.log(`Seeking by ${offsetSeconds}s to: ${formatTime(seekTime)}`); _pausedTime = seekTime; if (isPlaying) { startPlayback(seekTime); } else { updateProgress(); } }
-         function playNext() { /* ... same, uses currentTracklist ... */ if (currentTracklist.length === 0 || currentTrackIndex === -1) return; let nextIndex = currentTrackIndex + 1; if (nextIndex >= currentTracklist.length) nextIndex = 0; if (currentTracklist[nextIndex]) playAudioFile(currentTracklist[nextIndex], currentTracklist); else stopPlayback(true); }
-         function playPrev() { /* ... same, uses currentTracklist ... */ if (currentTracklist.length === 0 || currentTrackIndex === -1) return; let prevIndex = currentTrackIndex - 1; if (prevIndex < 0) prevIndex = currentTracklist.length - 1; if (currentTracklist[prevIndex]) playAudioFile(currentTracklist[prevIndex], currentTracklist); else stopPlayback(true); }
-         async function triggerDownload() { /* ... same ... */ if (!currentPlayingFile || !currentPlayingFile.path || downloadBtn.classList.contains('loading') || downloadBtn.disabled) return; const fileUrl = `${archiveDownloadUrlBase}/${encodeURIComponent(currentPlayingFile.path)}`; const filename = currentPlayingFile.displayName || currentPlayingFile.path.split('/').pop(); console.log(`Initiating download for: ${filename}`); downloadBtn.classList.add('loading'); downloadBtn.disabled = true; try { const response = await fetch(fileUrl); if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`); const blob = await response.blob(); const blobUrl = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = blobUrl; link.download = filename; document.body.appendChild(link); link.click(); document.body.removeChild(link); setTimeout(() => URL.revokeObjectURL(blobUrl), 100); console.log(`Download triggered for ${filename}`); } catch (error) { console.error("Download failed:", error); alert(`Failed to download "${filename}". Error: ${error.message}`); } finally { downloadBtn.classList.remove('loading'); downloadBtn.disabled = !currentAudioBuffer || !currentPlayingFile; } }
-
-
-        // --- UI Updates ---
-        function updatePlayerUI(isLoading = false, loadingMessage = 'Loading...') { /* ... same logic ... */ const hasActiveTrack = !!currentPlayingFile; const hasBuffer = !!currentAudioBuffer; const canControl = hasActiveTrack && hasBuffer && !isLoading; playPauseBtn.disabled = !hasActiveTrack || isLoading || !audioContext; pitchSlider.disabled = !canControl; downloadBtn.disabled = !canControl || downloadBtn.classList.contains('loading'); volumeSlider.disabled = !audioContext; updatePrevNextButtons(); if (isLoading) { albumArtLoader.classList.add('visible'); albumArtIcon.classList.add('hidden'); albumArtImg.classList.remove('loaded'); albumArtImg.src = ''; nowPlayingEl.textContent = currentPlayingFile?.displayName || 'Loading...'; nowPlayingEl.title = currentPlayingFile?.displayName || 'Loading...'; nowPlayingArtistAlbumEl.textContent = loadingMessage; nowPlayingArtistAlbumEl.title = loadingMessage; nowPlayingPathEl.textContent = ''; playPauseBtn.textContent = '⏳'; durationEl.textContent = '--:--'; currentTimeEl.textContent = '--:--'; progressBar.style.width = '0%'; miniProgressBar.style.setProperty('--progress-width', '0%'); } else if (hasActiveTrack && hasBuffer) { if (!currentPlayingFile.metadata) { displayMetadataInPlayer({}); } albumArtLoader.classList.remove('visible'); playPauseBtn.textContent = isPlaying ? '⏸' : '▶'; durationEl.textContent = formatTime(currentAudioBuffer.duration); updateProgress(); } else { albumArtLoader.classList.remove('visible'); albumArtImg.classList.remove('loaded'); albumArtImg.src = ''; albumArtIcon.classList.remove('hidden'); nowPlayingEl.textContent = 'Not playing'; nowPlayingEl.title = 'Not playing'; nowPlayingArtistAlbumEl.textContent = 'Select an MP3 file'; nowPlayingArtistAlbumEl.title = 'Select an MP3 file'; nowPlayingPathEl.textContent = ''; playPauseBtn.textContent = '▶'; playPauseBtn.disabled = true; pitchSlider.disabled = true; downloadBtn.disabled = true; prevBtn.disabled = true; nextBtn.disabled = true; durationEl.textContent = '0:00'; currentTimeEl.textContent = '0:00'; progressBar.style.width = '0%'; miniProgressBar.style.setProperty('--progress-width', '0%'); } }
-        function updateProgress() { /* ... same ... */ if (!audioContext || !currentAudioBuffer) { currentTimeEl.textContent = '0:00'; progressBar.style.width = '0%'; miniProgressBar.style.setProperty('--progress-width', `0%`); return; } const currentPosition = getCurrentPlaybackTime(); const duration = currentAudioBuffer.duration; currentTimeEl.textContent = formatTime(currentPosition); const progressPercent = (duration > 0) ? (currentPosition / duration) * 100 : 0; const progressWidth = `${Math.min(100, progressPercent)}%`; progressBar.style.width = progressWidth; if (miniProgressBar.style.getPropertyValue('--progress-width') !== progressWidth) { miniProgressBar.style.setProperty('--progress-width', progressWidth); } }
-        function updateFileDurationInList(filePath, durationSeconds) { /* ... same ... */ if (currentLayoutMode !== 'list' || !durationSeconds) return; const durationStr = formatTime(durationSeconds); const durationElement = fileBrowserContainerEl.querySelector(`.file-duration-list[data-path="${CSS.escape(filePath)}"]`); if (durationElement && durationElement.textContent !== durationStr) { durationElement.textContent = durationStr; } }
-        function updateVolumeIcon(volume) { /* ... same ... */ volumeIcon.textContent = (volume <= 0) ? '🔇' : (volume < 0.5) ? '🔈' : '🔊'; }
-        function updatePrevNextButtons() { /* ... same ... */ const canNavigate = currentTracklist && currentTracklist.length > 1 && currentTrackIndex !== -1; prevBtn.disabled = !canNavigate; nextBtn.disabled = !canNavigate; }
-
-        // --- Minimizable Player ---
-        function togglePlayerMinimized() { /* ... same ... */ isPlayerMinimized = !isPlayerMinimized; applyMinimizedState(); saveSetting('playerMinimized', isPlayerMinimized); }
-        function applyMinimizedState() { /* ... same ... */ const toggleIcon = playerToggleBtn.querySelector('.toggle-icon'); if (isPlayerMinimized) { playerSection.classList.add('minimized'); if(toggleIcon) toggleIcon.textContent = '▲'; playerToggleBtn.title = "Expand Player"; } else { playerSection.classList.remove('minimized'); if(toggleIcon) toggleIcon.textContent = '▼'; playerToggleBtn.title = "Minimize Player"; } }
-
-        // --- Helper Functions ---
-        function formatTime(seconds) { /* ... same ... */ if (isNaN(seconds) || !isFinite(seconds) || seconds < 0) return '0:00'; const totalSeconds = Math.floor(seconds); const mins = Math.floor(totalSeconds / 60); const secs = totalSeconds % 60; return `${mins}:${secs.toString().padStart(2, '0')}`; }
-        function showSearchHintIfNeeded() { /* ... same ... */ if (localStorage.getItem('searchHintDismissed') !== 'true') { setTimeout(() => searchHintPopup?.classList.add('visible'), 500); } }
-        function dismissSearchHint() { /* ... same ... */ if (!searchHintPopup) return; searchHintPopup.style.opacity = '0'; setTimeout(() => searchHintPopup.classList.remove('visible'), 300); try { localStorage.setItem('searchHintDismissed', 'true'); } catch (e) { console.warn("Could not save hint dismissal state:", e); } }
-
-        // --- Event Listeners ---
+        // --- Event Listeners (Removed effect button listener) ---
         function setupEventListeners() {
-            // Search
-             searchToggleBtn.addEventListener('click', () => toggleSearch());
-             searchBox.addEventListener('input', handleSearch);
-             searchBox.addEventListener('search', () => { if (!searchBox.value) handleSearch(); });
-
-             // Keyboard Shortcuts
-             document.addEventListener('keydown', (e) => {
-                 const activeEl = document.activeElement;
-                 const isInputFocused = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable);
-                 if (e.key === '/' && !isInputFocused) { e.preventDefault(); toggleSearch(true); }
-                 else if (e.key === 'Escape' && searchContainer.classList.contains('active')) { toggleSearch(false); if (searchBox.value) { searchBox.value = ''; handleSearch(); } }
-                 else if (e.code === 'Space' && !isInputFocused) { e.preventDefault(); if (!playPauseBtn.disabled) togglePlayback(); }
-                 else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !isInputFocused && currentAudioBuffer) { e.preventDefault(); const seekDirection = e.key === 'ArrowLeft' ? -1 : 1; seek(seekDirection * SEEK_TIME_SECONDS); }
-             });
-
-            // Player Controls
-            playPauseBtn.addEventListener('click', togglePlayback);
-            prevBtn.addEventListener('click', playPrev);
-            nextBtn.addEventListener('click', playNext);
-            downloadBtn.addEventListener('click', triggerDownload);
-            playerToggleBtn.addEventListener('click', togglePlayerMinimized);
-            progressWrapper.addEventListener('click', (e) => { if (!currentAudioBuffer || !audioContext) return; const rect = progressWrapper.getBoundingClientRect(); const clickX = e.clientX - rect.left; const progressRatio = Math.max(0, Math.min(1, clickX / rect.width)); const seekTime = progressRatio * currentAudioBuffer.duration; _pausedTime = seekTime; if (isPlaying) { startPlayback(seekTime); } else { updateProgress(); } });
-            volumeSlider.addEventListener('input', () => { currentVolume = parseFloat(volumeSlider.value); if (gainNode) gainNode.gain.value = currentVolume; updateVolumeIcon(currentVolume); saveSetting('playerVolume', currentVolume); });
-            pitchSlider.addEventListener('input', () => { const newRate = parseFloat(pitchSlider.value); if (newRate === currentPlaybackRate) return; currentPlaybackRate = newRate; if (sourceNode) { const currentTime = getCurrentPlaybackTime(); sourceNode.playbackRate.setValueAtTime(currentPlaybackRate, audioContext.currentTime); if (isPlaying) { _startOffset = currentTime; _startTime = audioContext.currentTime; } } saveSetting('playerRate', currentPlaybackRate); });
-
-             // View Mode Toggles
-             folderViewBtn.addEventListener('click', () => setMainViewMode(VIEW_MODE_FOLDER));
-             artistViewBtn.addEventListener('click', () => setMainViewMode(VIEW_MODE_ARTIST));
-             gridViewBtn.addEventListener('click', () => setLayoutMode('grid'));
-             listViewBtn.addEventListener('click', () => setLayoutMode('list'));
-
-             // Search Hint
-             closeHintBtn.addEventListener('click', dismissSearchHint);
+            searchToggleBtn.addEventListener('click', () => toggleSearch()); searchBox.addEventListener('input', handleSearch); searchBox.addEventListener('search', () => { if (!searchBox.value) handleSearch(); }); searchBox.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleSearch(); });
+            document.addEventListener('keydown', (e) => { const activeEl = document.activeElement; const isInputFocused = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable); if (e.key === '/' && !isInputFocused) { e.preventDefault(); toggleSearch(true); } else if (e.key === 'Escape' && searchContainer.classList.contains('active')) { e.preventDefault(); toggleSearch(false); } else if (e.code === 'Space' && !isInputFocused) { e.preventDefault(); if (!playPauseBtn.disabled) togglePlayback(); } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !isInputFocused && currentAudioBuffer) { e.preventDefault(); const dir = e.key === 'ArrowLeft' ? -1 : 1; seek(dir * SEEK_TIME_SECONDS); } else if (e.shiftKey && e.key === 'ArrowRight' && !isInputFocused) { e.preventDefault(); if (!nextBtn.disabled) playNext(); } else if (e.shiftKey && e.key === 'ArrowLeft' && !isInputFocused) { e.preventDefault(); if (!prevBtn.disabled) playPrev(); } });
+            playPauseBtn.addEventListener('click', togglePlayback); prevBtn.addEventListener('click', playPrev); nextBtn.addEventListener('click', playNext); downloadBtn.addEventListener('click', triggerDownload); playerToggleBtn.addEventListener('click', togglePlayerMinimized);
+            progressWrapper.addEventListener('click', (e) => { if (!currentAudioBuffer || !audioContext) return; const rect = progressWrapper.getBoundingClientRect(); const clickX = e.clientX - rect.left; const ratio = Math.max(0, Math.min(1, clickX / rect.width)); const seekTime = ratio * currentAudioBuffer.duration; _pausedTime = seekTime; if (isPlaying) startPlayback(seekTime); else { _startOffset = seekTime; updateProgress(); } });
+            volumeSlider.addEventListener('input', () => { currentVolume = parseFloat(volumeSlider.value); if (gainNode) gainNode.gain.setTargetAtTime(currentVolume, audioContext.currentTime, 0.015); updateVolumeIcon(currentVolume); });
+            volumeSlider.addEventListener('change', () => saveSetting('playerVolume', currentVolume));
+            pitchSlider.addEventListener('input', () => { const newRate = parseFloat(pitchSlider.value); if (newRate === currentPlaybackRate) return; currentPlaybackRate = newRate; if (sourceNode && audioContext) { const currentTime = getCurrentPlaybackTime(); sourceNode.playbackRate.setTargetAtTime(currentPlaybackRate, audioContext.currentTime, 0.015); if (isPlaying) { _startOffset = currentTime; _startTime = audioContext.currentTime; } } });
+            pitchSlider.addEventListener('change', () => saveSetting('playerRate', currentPlaybackRate));
+            folderViewBtn.addEventListener('click', () => setMainViewMode(VIEW_MODE_FOLDER)); gridViewBtn.addEventListener('click', () => setLayoutMode('grid')); listViewBtn.addEventListener('click', () => setLayoutMode('list'));
+            fileBrowserContainerEl.addEventListener('click', (event) => { const downloadButton = event.target.closest('.track-download-btn'); if (downloadButton) { event.stopPropagation(); const filePath = downloadButton.dataset.path; const listItem = downloadButton.closest('.file-item-list, .file-item-grid'); const nameElement = listItem?.querySelector('.file-name-list, .file-name-grid'); const displayName = nameElement?.textContent || filePath?.split('/').pop(); if (filePath) downloadSpecificTrack(filePath, downloadButton, displayName); else console.error("No file path found for download button."); } });
+            // Removed effect button listener delegation
+            closeHintBtn.addEventListener('click', dismissSearchHint);
         }
-
     </script>
 </body>
 </html>
