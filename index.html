@@ -552,8 +552,8 @@
         const archiveIdentifier = 'mp3archive'; // <<< Your Archive Identifier
         const archiveApiUrl = `https://archive.org/metadata/${archiveIdentifier}`;
         const archiveDownloadUrlBase = `https://archive.org/download/${archiveIdentifier}`;
-        const FETCH_TIMEOUT_MS = 60000;
-        const MAX_RETRIES = 5;
+        const FETCH_TIMEOUT_MS = 40000;
+        const MAX_RETRIES = 2;
         const MAX_CACHE_SIZE = 20;
         const SEEK_TIME_SECONDS = 5;
         const UNKNOWN_ARTIST = "[Unknown Artist]";
@@ -754,7 +754,7 @@
          }
 
         // --- Skeleton Loader & Status (No changes needed) ---
-        function showInitialLoading() { showSkeletonLoader(true); statusMessageEl.innerHTML = `<span class="loader"></span>Loading archive...`; statusMessageEl.classList.add('visible'); fileBrowserContainerEl.innerHTML = ''; }
+        function showInitialLoading() { showSkeletonLoader(true); statusMessageEl.innerHTML = `<span class="loader"></span>Loading archive... Please wait for a while it loads and do not click on any other thing.`; statusMessageEl.classList.add('visible'); fileBrowserContainerEl.innerHTML = ''; }
         function hideInitialLoading() { hideSkeletonLoader(); if (statusMessageEl.textContent.includes("Loading archive")) { statusMessageEl.classList.remove('visible'); statusMessageEl.innerHTML = ''; } }
         function showSkeletonLoader(show) { skeletonLoaderEl.style.display = show ? (currentLayoutMode === 'grid' ? 'grid' : 'flex') : 'none'; skeletonLoaderEl.className = `file-browser-${currentLayoutMode} visible`; }
         function hideSkeletonLoader() { skeletonLoaderEl.style.display = 'none'; }
