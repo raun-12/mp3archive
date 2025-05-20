@@ -769,7 +769,7 @@
               });
          }
 
-        function showInitialLoading() { populateSkeletonLoaders(); showSkeletonLoader(true); statusMessageEl.innerHTML = `<span class="loader"></span>Loading archive... Please wait.`; statusMessageEl.classList.add('visible'); fileBrowserContainerEl.innerHTML = ''; }
+        function showInitialLoading() { populateSkeletonLoaders(); showSkeletonLoader(true); statusMessageEl.innerHTML = `<span class="loader"></span>Loading archive... Please wait. (Desktop View Preferred)`; statusMessageEl.classList.add('visible'); fileBrowserContainerEl.innerHTML = ''; }
         function hideInitialLoading() { hideSkeletonLoader(); if (statusMessageEl.textContent.includes("Loading archive")) { statusMessageEl.classList.remove('visible'); statusMessageEl.innerHTML = ''; } }
         function showSkeletonLoader(show) { populateSkeletonLoaders(); skeletonLoaderEl.style.display = show ? (currentLayoutMode === 'grid' ? 'grid' : 'flex') : 'none'; skeletonLoaderEl.className = `file-browser-${currentLayoutMode}${show ? ' visible': ''}`; }
         function hideSkeletonLoader() { skeletonLoaderEl.style.display = 'none'; }
