@@ -515,8 +515,8 @@
                 <div class="directory-path" id="directory-path"></div>
             </div>
             <div class="view-toggle-buttons" id="grid-list-toggle-container">
-                <button id="grid-view-btn" class="view-toggle-btn active" title="Grid View"><i class="fas fa-th-large"></i></button>
-                <button id="list-view-btn" class="view-toggle-btn" title="List View"><i class="fas fa-list"></i></button>
+                <button id="grid-view-btn" class="view-toggle-btn" title="Grid View"><i class="fas fa-th-large"></i></button>
+                <button id="list-view-btn" class="view-toggle-btn active" title="List View"><i class="fas fa-list"></i></button>
             </div>
         </div>
         <!-- Status Message -->
@@ -680,7 +680,7 @@
         let currentTracklist = [];
         let currentTrackIndex = -1;
         let currentPlayingFile = null;
-        let currentLayoutMode = localStorage.getItem('layoutMode') || 'grid';
+        let currentLayoutMode = localStorage.getItem('layoutMode') || 'list';
         let currentMainView = localStorage.getItem('mainView') || 'folder';
         let playerState = localStorage.getItem('playerState') || 'standard';
         let isNavigatingViaPopState = false; // For history management
