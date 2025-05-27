@@ -121,7 +121,7 @@
 
         /* --- Controls Bar --- */
         .controls-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; min-height: 30px; }
-        .directory-container { overflow-x: auto; white-space: nowrap; padding-bottom: 5px; flex-grow: 1; min-width: 200px; scrollbar-width: thin; scrollbar-color: var(--bg-tertiary) var(--bg-primary); }
+        .directory-container { overflow-x: auto; white-space: nowrap; padding-bottom: 5px; flex-grow: 1; min-width: 150px; /* Adjusted min-width */ scrollbar-width: thin; scrollbar-color: var(--bg-tertiary) var(--bg-primary); }
         .directory-container::-webkit-scrollbar { height: 6px; }
         .directory-container::-webkit-scrollbar-track { background: var(--bg-primary); }
         .directory-container::-webkit-scrollbar-thumb { background-color: var(--bg-tertiary); border-radius: 3px; }
@@ -131,6 +131,18 @@
         .directory-crumb.current { color: var(--text-primary); font-weight: 500; cursor: default; }
         .directory-crumb.current:hover { background-color: transparent; }
         .directory-separator { color: var(--text-secondary); font-size: 0.9rem; margin: 0 2px; }
+        
+        .item-count-display {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin: 0 10px; /* Spacing around the count */
+            white-space: nowrap;
+            flex-shrink: 0;
+            line-height: 1.2; /* Match button line-height for alignment */
+            align-self: center;
+            display: none; /* Hidden by default, shown by JS */
+        }
+
         .view-toggle-buttons { display: flex; gap: 5px; background-color: var(--bg-tertiary); padding: 4px; border-radius: 6px; flex-shrink: 0; }
         .view-toggle-btn { background: none; border: none; color: var(--text-secondary); font-size: 1.1rem; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: background-color 0.2s, color 0.2s; line-height: 1; }
         .view-toggle-btn i { font-size: inherit; }
@@ -371,6 +383,17 @@
          #search-hint-popup.visible { display: flex; opacity: 1; transform: translateY(0); }
          #close-hint-btn { background: none; border: none; color: var(--text-secondary); font-size: 1.2rem; cursor: pointer; padding: 0 5px; line-height: 1; margin-left: 5px; }
          #close-hint-btn:hover { color: var(--text-primary); }
+         kbd {
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            padding: 1px 4px;
+            font-family: monospace; /* Or inherit from body */
+            font-size: 0.9em; /* Slightly smaller than surrounding text */
+            box-shadow: inset 0 -1px 0 var(--border-color);
+            color: var(--text-primary);
+        }
+
 
         /* --- Responsive Player Layout --- */
         body.player-standard { padding-bottom: 90px; }
@@ -386,7 +409,8 @@
              .control-slider { width: 60px; }
              .player-info .jump-to-folder-btn { width: 30px; height: 30px; font-size: 0.9rem; }
              .revert-speed-btn { width: 26px; height: 26px; font-size: 0.8rem; }
-
+             .directory-container { min-width: 120px; } /* Allow smaller breadcrumbs */
+             .item-count-display { margin: 0 8px; font-size: 0.75rem; }
         }
 
         @media (max-width: 768px) { 
@@ -489,6 +513,8 @@
              .pitch-control, .volume-control { min-width: 120px; gap: 6px;}
              .control-slider { width: 90px; }
              .revert-speed-btn { width: 28px; height: 28px; font-size: 0.8rem; }
+             .directory-container { min-width: 80px; } /* Further reduce for very small screens */
+             .item-count-display { margin: 0 5px; font-size: 0.7rem; }
          }
     </style>
 </head>
@@ -514,6 +540,7 @@
             <div class="directory-container">
                 <div class="directory-path" id="directory-path"></div>
             </div>
+            <span id="item-count-display" class="item-count-display"></span>
             <div class="view-toggle-buttons" id="grid-list-toggle-container">
                 <button id="grid-view-btn" class="view-toggle-btn" title="Grid View"><i class="fas fa-th-large"></i></button>
                 <button id="list-view-btn" class="view-toggle-btn active" title="List View"><i class="fas fa-list"></i></button>
@@ -642,7 +669,7 @@
         const prevBtn = document.getElementById('prev-btn');
         const nextBtn = document.getElementById('next-btn');
         const downloadBtn = document.getElementById('download-btn');
-        const jumpToFolderBtn = document.getElementById('jump-to-folder-btn'); // New button
+        const jumpToFolderBtn = document.getElementById('jump-to-folder-btn'); 
         const progressWrapper = document.getElementById('progress-wrapper');
         const progressBar = document.getElementById('progress-bar');
         const currentTimeEl = document.getElementById('current-time');
@@ -650,13 +677,14 @@
         const volumeSlider = document.getElementById('volume-slider');
         const volumeIcon = document.getElementById('volume-icon').querySelector('i');
         const pitchSlider = document.getElementById('pitch-slider');
-        const revertSpeedBtn = document.getElementById('revert-speed-btn'); // New button
+        const revertSpeedBtn = document.getElementById('revert-speed-btn'); 
         const searchHintPopup = document.getElementById('search-hint-popup');
         const closeHintBtn = document.getElementById('close-hint-btn');
         const gridViewBtn = document.getElementById('grid-view-btn');
         const listViewBtn = document.getElementById('list-view-btn');
         const gridListToggleContainer = document.getElementById('grid-list-toggle-container');
         const folderViewBtn = document.getElementById('folder-view-btn');
+        const itemCountDisplayEl = document.getElementById('item-count-display'); // New DOM Element
 
         // --- Audio State ---
         let audioContext;
@@ -671,7 +699,7 @@
         let _startOffset = 0;
         let _pausedTime = 0;
         let fetchAbortController = null;
-        const activeDownloads = new Map(); // Store AbortControllers for downloads
+        const activeDownloads = new Map(); 
 
         // --- Data State ---
         let currentDirectory = '';
@@ -683,7 +711,7 @@
         let currentLayoutMode = localStorage.getItem('layoutMode') || 'list';
         let currentMainView = localStorage.getItem('mainView') || 'folder';
         let playerState = localStorage.getItem('playerState') || 'standard';
-        let isNavigatingViaPopState = false; // For history management
+        let isNavigatingViaPopState = false; 
 
         // --- Caching ---
         const audioCache = new Map();
@@ -695,18 +723,18 @@
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', () => {
             const initialPathFromUrl = new URLSearchParams(window.location.search).get('path');
-            if (initialPathFromUrl !== null) { // allow empty string for root
+            if (initialPathFromUrl !== null) { 
                 currentDirectory = initialPathFromUrl;
             }
             history.replaceState({ path: currentDirectory }, document.title, buildUrlQuery(currentDirectory));
             
             loadSettings();
             setupAudioContext();
-            loadArchiveStructure(); // This will use currentDirectory
+            loadArchiveStructure(); 
             setupEventListeners();
             updatePlayerUI();
             applyLayoutMode();
-            applyMainViewMode();
+            applyMainViewMode(); // This will also handle initial item count display visibility
             applyPlayerState(); 
             showSearchHintIfNeeded();
             populateSkeletonLoaders();
@@ -716,9 +744,6 @@
             if (path) {
                 return `?path=${encodeURIComponent(path)}`;
             }
-            // For root, return the base path without query string to keep URL clean
-            // Assumes the script is at the root or a known base path.
-            // If deployed in a subfolder, window.location.pathname might be needed.
             return window.location.pathname; 
         }
 
@@ -786,7 +811,6 @@
                 const data = await response.json();
                 if (!data.files || !Array.isArray(data.files)) throw new Error('Invalid archive structure: No files array found.');
                 allArchiveFiles = processRawFiles(data.files);
-                // currentDirectory is already set from URL or default
                 updateDirectoryView(currentDirectory); 
                 updateMainViewToggleButtons();
                 hideInitialLoading();
@@ -828,15 +852,83 @@
               });
          }
 
-        function showInitialLoading() { populateSkeletonLoaders(); showSkeletonLoader(true); statusMessageEl.innerHTML = `<span class="loader"></span>Loading archive... Please wait. (Desktop View Preferred)`; statusMessageEl.classList.add('visible'); fileBrowserContainerEl.innerHTML = ''; }
+        function showInitialLoading() { populateSkeletonLoaders(); showSkeletonLoader(true); statusMessageEl.innerHTML = `<span class="loader"></span>Loading archive... Please wait. (Desktop View Preferred)`; statusMessageEl.classList.add('visible'); fileBrowserContainerEl.innerHTML = ''; if (itemCountDisplayEl) itemCountDisplayEl.style.display = 'none'; }
         function hideInitialLoading() { hideSkeletonLoader(); if (statusMessageEl.textContent.includes("Loading archive")) { statusMessageEl.classList.remove('visible'); statusMessageEl.innerHTML = ''; } }
         function showSkeletonLoader(show) { populateSkeletonLoaders(); skeletonLoaderEl.style.display = show ? (currentLayoutMode === 'grid' ? 'grid' : 'flex') : 'none'; skeletonLoaderEl.className = `file-browser-${currentLayoutMode}${show ? ' visible': ''}`; }
         function hideSkeletonLoader() { skeletonLoaderEl.style.display = 'none'; }
-        function displayStatus(message, isError = false) { statusMessageEl.innerHTML = message; statusMessageEl.style.color = isError ? 'var(--accent-color)' : 'var(--text-secondary)'; statusMessageEl.classList.add('visible'); fileBrowserContainerEl.innerHTML = ''; hideSkeletonLoader(); }
+        function displayStatus(message, isError = false) { statusMessageEl.innerHTML = message; statusMessageEl.style.color = isError ? 'var(--accent-color)' : 'var(--text-secondary)'; statusMessageEl.classList.add('visible'); fileBrowserContainerEl.innerHTML = ''; hideSkeletonLoader(); if (itemCountDisplayEl) { itemCountDisplayEl.textContent = ''; itemCountDisplayEl.style.display = 'none';}}
         function hideLoading() { if (!statusMessageEl.style.color.includes('accent')) { statusMessageEl.classList.remove('visible'); } }
 
         function setMainViewMode(mode) { if (mode === currentMainView) return; currentMainView = mode; saveSetting('mainView', mode); applyMainViewMode(); searchBox.value = ''; if(searchContainer.classList.contains('active')) toggleSearch(false); showSkeletonLoader(true); fileBrowserContainerEl.innerHTML = ''; requestAnimationFrame(() => { if (mode === VIEW_MODE_FOLDER) updateDirectoryView(currentDirectory); else displayStatus("Selected view not implemented.", false); }); }
-        function applyMainViewMode() { updateMainViewToggleButtons(); updateBreadcrumbs(); gridListToggleContainer.style.display = (currentMainView === VIEW_MODE_FOLDER) ? 'flex' : 'none'; }
+        
+        function applyMainViewMode() {
+            updateMainViewToggleButtons();
+            updateBreadcrumbs(); // Depends on currentMainView
+            const showFolderControls = currentMainView === VIEW_MODE_FOLDER;
+            gridListToggleContainer.style.display = showFolderControls ? 'flex' : 'none';
+            
+            if (itemCountDisplayEl) {
+                itemCountDisplayEl.style.display = showFolderControls ? 'inline' : 'none';
+                if (!showFolderControls) {
+                    itemCountDisplayEl.textContent = '';
+                } else {
+                    // If switching back to folder view, ensure count is updated
+                    updateItemCountDisplay(); 
+                }
+            }
+        }
+
+        function updateItemCountDisplay() {
+            if (!itemCountDisplayEl || !currentDirectoryItems) {
+                if(itemCountDisplayEl) itemCountDisplayEl.style.display = 'none';
+                return;
+            }
+
+            const items = currentDirectoryItems;
+            const count = items.length;
+            let text = "";
+
+            const isSearchActive = searchBox.value.trim() !== '' && searchContainer.classList.contains('active');
+
+            if (isSearchActive) {
+                const numFiles = items.filter(item => item.isAudio).length;
+                if (numFiles > 0) {
+                    text = `${numFiles} track${numFiles > 1 ? 's' : ''} found`;
+                } else {
+                    text = "No tracks found";
+                }
+            } else { // Folder view
+                const numFolders = items.filter(item => item.isDirectory).length;
+                const numAudioFiles = items.filter(item => item.isAudio).length;
+
+                if (numFolders > 0 && numAudioFiles > 0) {
+                    text = `${numFolders} folder${numFolders > 1 ? 's' : ''}, ${numAudioFiles} track${numAudioFiles > 1 ? 's' : ''}`;
+                } else if (numFolders > 0) {
+                    text = `${numFolders} folder${numFolders > 1 ? 's' : ''}`;
+                } else if (numAudioFiles > 0) {
+                    text = `${numAudioFiles} track${numAudioFiles > 1 ? 's' : ''}`;
+                } else if (count === 0) {
+                    if (currentDirectory !== '' && currentDirectory !== undefined) { // Check currentDirectory to distinguish root
+                         text = "Empty folder";
+                    } else { 
+                         text = "Archive empty";
+                    }
+                } else if (count > 0) { // Fallback for items that are neither folders nor audio (if any)
+                    text = `${count} item${count > 1 ? 's' : ''}`;
+                } else {
+                     text = ""; 
+                }
+            }
+            
+            itemCountDisplayEl.textContent = text;
+            // Ensure visibility is handled by applyMainViewMode for general view changes,
+            // but if folder view is active, visibility depends on whether there's text.
+            if (currentMainView === VIEW_MODE_FOLDER) {
+                 itemCountDisplayEl.style.display = text ? 'inline' : 'none';
+            }
+        }
+
+
         function updateMainViewToggleButtons() { folderViewBtn.classList.toggle('active', currentMainView === VIEW_MODE_FOLDER); }
         function setLayoutMode(mode) { if (mode === currentLayoutMode) return; currentLayoutMode = mode; saveSetting('layoutMode', mode); applyLayoutMode(); rerenderCurrentView(); }
         function applyLayoutMode() { gridViewBtn.classList.toggle('active', currentLayoutMode === 'grid'); listViewBtn.classList.toggle('active', currentLayoutMode === 'list'); populateSkeletonLoaders(); if (fileBrowserContainerEl.children.length > 0) fileBrowserContainerEl.className = `file-browser-${currentLayoutMode}`; }
@@ -846,12 +938,11 @@
             if (currentMainView !== VIEW_MODE_FOLDER) return;
             
             const oldPath = currentDirectory;
-            currentDirectory = path; // Update global currentDirectory
+            currentDirectory = path; 
 
             if (!isNavigatingViaPopState && oldPath !== currentDirectory) {
                 history.pushState({ path: currentDirectory }, document.title, buildUrlQuery(currentDirectory));
             }
-            // If navigating to a new folder (not from popstate), clear search
             if (oldPath !== currentDirectory && searchBox.value) {
                  searchBox.value = '';
                  if (searchContainer.classList.contains('active')) toggleSearch(false);
@@ -865,13 +956,27 @@
             currentTracklist = items.filter(item => item.isAudio); 
             currentTrackIndex = currentPlayingFile ? currentTracklist.findIndex(track => track.path === currentPlayingFile.path) : -1; 
             updatePrevNextButtons(); 
+            updateItemCountDisplay(); // Update count based on new items
             gridListToggleContainer.style.display = 'flex'; 
             requestAnimationFrame(() => { 
                 renderFileBrowser(items); 
                 hideSkeletonLoader(); 
-                if (items.length === 0 && !path) displayStatus("Archive empty or failed load.", true); 
-                else if (items.length === 0) displayStatus("Directory is empty.", false); 
-                else hideLoading(); 
+                if (items.length === 0 && (!path || path === '')) { // Changed to check for root explicitly
+                    // DisplayStatus will hide item count, updateItemCountDisplay handles specific message for empty
+                } else if (items.length === 0) {
+                    // updateItemCountDisplay shows "Empty folder"
+                }
+                // If items.length > 0, hide general loading/status messages
+                if (items.length > 0 && statusMessageEl.classList.contains('visible') && !statusMessageEl.textContent.toLowerCase().includes('error')) {
+                     hideLoading();
+                } else if (items.length === 0 && (!path || path === '')) {
+                    displayStatus("Archive empty or failed load.", false); // Keep status for empty root
+                } else if (items.length === 0) {
+                    // For empty subfolders, rely on itemCountDisplay, don't show big status message
+                    if (statusMessageEl.classList.contains('visible') && !statusMessageEl.textContent.toLowerCase().includes('error')) {
+                         hideLoading();
+                    }
+                }
             }); 
         }
 
@@ -879,7 +984,15 @@
 
         function renderFileBrowser(items) {
             fileBrowserContainerEl.innerHTML = ''; fileBrowserContainerEl.className = ''; 
-            if (items.length === 0) return; 
+            // Item count is updated before this by updateDirectoryView or handleSearch
+
+            if (items.length === 0) {
+                // updateItemCountDisplay handles the "Empty folder" or "No results" message
+                // No need to display a large status message here if itemCountDisplay covers it
+                // unless it's a root empty state or error, handled by displayStatus
+                return;
+            }
+
 
             const allRenderedItems = fileBrowserContainerEl.querySelectorAll('.file-item-list.playing-track, .file-item-grid.playing-track');
             allRenderedItems.forEach(it => it.classList.remove('playing-track'));
@@ -924,20 +1037,30 @@
             const searchTerm = searchBox.value.toLowerCase().trim(); 
             if (!searchTerm) { 
                 hideSkeletonLoader(); 
-                // If search is cleared, updateDirectoryView will be called with currentDirectory,
-                // which handles history state if currentDirectory changes (e.g. if it was a search-specific state)
-                // For now, just rerender the currentDirectory.
-                updateDirectoryView(currentDirectory); // This will effectively clear search UI and show current folder
+                updateDirectoryView(currentDirectory); 
                 return; 
             } 
             const results = allArchiveFiles.filter(file => !file.isDirectory && file.isAudio && (file.path.toLowerCase().includes(searchTerm) || (file.title && file.title.toLowerCase().includes(searchTerm)) || (file.artist && file.artist.toLowerCase().includes(searchTerm)) || (file.album && file.album.toLowerCase().includes(searchTerm))) ).sort((a, b) => (a.title || a.displayName).localeCompare(b.title || b.displayName)); 
             currentDirectoryItems = results; currentTracklist = results; 
             currentTrackIndex = currentPlayingFile ? currentTracklist.findIndex(track => track.path === currentPlayingFile.path) : -1; 
             updatePrevNextButtons(); 
+            updateItemCountDisplay(); // Update count for search results
             directoryPathEl.innerHTML = ''; 
             const searchCrumb = createFolderCrumb(`Search: "${searchBox.value}"`, '', true); directoryPathEl.appendChild(searchCrumb); 
             gridListToggleContainer.style.display = 'flex'; 
-            requestAnimationFrame(() => { renderFileBrowser(results); hideSkeletonLoader(); if (results.length === 0) displayStatus(`No results found for "${searchBox.value}".`, false); else hideLoading(); }); 
+            requestAnimationFrame(() => { 
+                renderFileBrowser(results); 
+                hideSkeletonLoader(); 
+                if (results.length === 0) {
+                    // displayStatus will hide itemCountDisplay, but updateItemCountDisplay will show "No tracks found"
+                    // No need for a large status message if itemCountDisplay covers it.
+                     if (statusMessageEl.classList.contains('visible') && !statusMessageEl.textContent.toLowerCase().includes('error')) {
+                         hideLoading();
+                    }
+                } else {
+                     hideLoading();
+                }
+            }); 
         }
 
 
@@ -1259,9 +1382,9 @@
             const hasActiveTrack = !!currentPlayingFile; const hasBuffer = !!currentAudioBuffer; const canControl = hasActiveTrack && hasBuffer && !isLoading;
             playPauseBtn.disabled = !hasActiveTrack || isLoading || !audioContext; 
             pitchSlider.disabled = !canControl; 
-            revertSpeedBtn.disabled = !canControl; // Tied to pitchSlider
+            revertSpeedBtn.disabled = !canControl; 
             downloadBtn.disabled = !hasActiveTrack || isLoading || downloadBtn.classList.contains('loading'); 
-            jumpToFolderBtn.disabled = !hasActiveTrack; // Enabled if a track is selected, even if loading
+            jumpToFolderBtn.disabled = !hasActiveTrack; 
             volumeSlider.disabled = !audioContext;
             updatePrevNextButtons();
 
@@ -1363,14 +1486,11 @@
             jumpToFolderBtn.addEventListener('click', () => {
                 if (!currentPlayingFile || !currentPlayingFile.path) return;
                 const pathParts = currentPlayingFile.path.split('/').filter(p => p);
-                pathParts.pop(); // Remove filename
+                pathParts.pop(); 
                 const folderPath = pathParts.join('/') + (pathParts.length > 0 ? '/' : '');
                 
                 if (currentMainView !== VIEW_MODE_FOLDER) {
                     setMainViewMode(VIEW_MODE_FOLDER); 
-                    // setMainViewMode will eventually call updateDirectoryView,
-                    // so we might need to ensure it uses the new folderPath.
-                    // For simplicity, call updateDirectoryView directly after ensuring mode.
                 }
                 updateDirectoryView(folderPath);
             });
@@ -1411,22 +1531,15 @@
                 isNavigatingViaPopState = true;
                 if (event.state && event.state.path !== undefined) {
                     if (currentMainView !== VIEW_MODE_FOLDER) {
-                        setMainViewMode(VIEW_MODE_FOLDER); // Ensure folder view is active
-                        // setMainViewMode might trigger its own updateDirectoryView.
-                        // For robustness, directly update after ensuring mode if path is different.
-                        // However, setMainViewMode calls updateDirectoryView(currentDirectory)
-                        // We need to make sure event.state.path is used.
-                        currentDirectory = event.state.path; // Update currentDirectory before setMainViewMode call
-                        updateDirectoryView(event.state.path);
+                        currentDirectory = event.state.path; 
+                        setMainViewMode(VIEW_MODE_FOLDER); 
+                        // updateDirectoryView will be called by setMainViewMode using the now-updated currentDirectory
                     } else {
                          updateDirectoryView(event.state.path);
                     }
                 } else {
-                    // Default to root if state is missing (e.g. initial page load + back button)
                     updateDirectoryView('');
                 }
-                // It's important to reset this flag after the updateDirectoryView call completes.
-                // Since updateDirectoryView uses requestAnimationFrame, direct reset here is fine.
                 isNavigatingViaPopState = false; 
             });
         }
