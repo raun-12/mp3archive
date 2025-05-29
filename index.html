@@ -339,7 +339,7 @@
             display: none; 
             opacity: 0; pointer-events: none;
         }
-        #player-section.minimized { height: 35px; overflow: hidden; }
+        #player-section.minimized { height: 40px; overflow: hidden; }
         #player-section.super-minimized { height: 20px; overflow: hidden; }
 
         #player-section.minimized .mini-progress,
@@ -358,13 +358,33 @@
         #player-section.minimized .player-subtitle,
         #player-section.minimized .player-subtitle-small { display: none; }
 
-        .player-toggle-button { position: absolute; top: -25px; left: 50%; transform: translateX(-50%); background-color: rgba(40, 40, 40, 0.9); border: 1px solid var(--border-color); border-bottom: none; color: var(--text-secondary); width: 50px; height: 25px; border-radius: 8px 8px 0 0; cursor: pointer; display: none; align-items: center; justify-content: center; font-size: 1rem; z-index: 101; transition: background-color 0.2s; padding: 0; }
+        .player-toggle-button { 
+            position: absolute; top: -25px; left: 50%; transform: translateX(-50%); 
+            background-color: rgba(40, 40, 40, 0.9); border: 1px solid var(--border-color); border-bottom: none; 
+            color: var(--text-secondary); width: 50px; height: 25px; border-radius: 8px 8px 0 0; 
+            cursor: pointer; display: none; /* JS will manage display */
+            align-items: center; justify-content: center; font-size: 1rem; z-index: 101; 
+            transition: background-color 0.2s; padding: 0; 
+        }
         .player-toggle-button:hover { background-color: var(--bg-tertiary); color: var(--text-primary); }
         .player-toggle-button .toggle-icon { transition: transform 0.3s ease; }
 
-        .mini-title { position: absolute; left: 15px; /* Adjusted for no icon */ top: 50%; transform: translateY(-50%); font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(100% - 30px); display: none; pointer-events: none; }
-        #player-section.super-minimized .mini-title { display: block; left: 15px; max-width: calc(100% - 30px); } /* Show further left */
-        #player-section.minimized .mini-title { display: none; } 
+        .mini-title { 
+            position: absolute; left: 15px; top: 50%; transform: translateY(-50%); 
+            font-size: 0.8rem; color: var(--text-secondary); 
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+            max-width: calc(100% - 30px); display: none; 
+            pointer-events: none; /* Default, JS might add cursor:pointer */
+            line-height: 1; /* Ensure icon aligns well */
+        }
+        #player-section.super-minimized .mini-title { 
+            display: flex; /* Use flex for icon alignment */
+            align-items: center;
+            left: 15px; 
+            max-width: calc(100% - 30px); 
+            pointer-events: auto; /* Allow clicks when interactive */
+        }
+        #player-section.minimized .mini-title { display: none; } /* Keep hidden for the 35px bar */
 
 
         .mini-progress { position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background-color: var(--progress-bar); display: none; z-index: 102; pointer-events: none; }
@@ -414,9 +434,12 @@
         }
 
         @media (max-width: 768px) { 
-            body.player-standard { padding-bottom: calc(180px + 25px); }
+            /* Toggle button height is 25px, if player is standard, it's hidden by JS for desktop, shown for mobile */
+            /* If player is minimized/super-minimized, toggle button is always shown by JS */
+            body.player-standard { padding-bottom: calc(180px + 25px); } 
             body.player-minimized { padding-bottom: calc(35px + 25px); }
             body.player-super-minimized { padding-bottom: calc(20px + 25px); }
+
 
             #player-section { height: 180px; } 
             #player-section.minimized { height: 35px; }
@@ -429,13 +452,13 @@
                 justify-content: space-around; 
             }
             .player-info {
-                 order: 1; width: 100%; gap: 10px; /* Keep jump button space */
+                 order: 1; width: 100%; gap: 10px; 
                  flex-basis: auto; justify-content: flex-start; min-width: 0;
                  padding-bottom: 5px;
             }
-            .player-info .jump-to-folder-btn { /* Ensure it's visible and sized for mobile */
-                display: flex !important; /* Override minimized state hide for mobile standard view */
-                margin-left: auto; /* Push to the right of player-text */
+            .player-info .jump-to-folder-btn { 
+                display: flex !important; 
+                margin-left: auto; 
             }
             .player-album-art { width: 45px; height: 45px; }
             .player-text { flex-grow: 1; min-width: 0; text-align: left; }
@@ -483,13 +506,10 @@
                  justify-content: center;
             }
             .control-slider { width: 100px; }
-            .revert-speed-btn { /* Ensure it's styled for mobile extras */
+            .revert-speed-btn { 
                  width: 30px; height: 30px; font-size: 0.9rem;
             }
-
-            .player-toggle-button { display: flex; } 
-            .mini-title { left: 15px; max-width: calc(100% - 70px); } /* Adjusted for toggle btn space */
-            #player-section.super-minimized .mini-title { left: 15px; max-width: calc(100% - 30px); }
+            #player-section.super-minimized .mini-title { max-width: calc(100% - 70px); } /* Space for toggle button */
         }
 
          @media (max-width: 480px) { 
@@ -513,7 +533,7 @@
              .pitch-control, .volume-control { min-width: 120px; gap: 6px;}
              .control-slider { width: 90px; }
              .revert-speed-btn { width: 28px; height: 28px; font-size: 0.8rem; }
-             .directory-container { min-width: 80px; } /* Further reduce for very small screens */
+             .directory-container { min-width: 80px; } 
              .item-count-display { margin: 0 5px; font-size: 0.7rem; }
          }
     </style>
@@ -656,6 +676,7 @@
         const playerSection = document.getElementById('player-section');
         const playerToggleBtn = document.getElementById('player-toggle-btn');
         const miniProgressBar = document.getElementById('mini-progress-bar');
+        const miniTitleEl = document.getElementById('mini-title'); // Added
         const playerAlbumArt = document.getElementById('player-album-art');
         const albumArtImg = document.getElementById('album-art-img');
         const albumArtIcon = document.getElementById('album-art-icon');
@@ -684,7 +705,7 @@
         const listViewBtn = document.getElementById('list-view-btn');
         const gridListToggleContainer = document.getElementById('grid-list-toggle-container');
         const folderViewBtn = document.getElementById('folder-view-btn');
-        const itemCountDisplayEl = document.getElementById('item-count-display'); // New DOM Element
+        const itemCountDisplayEl = document.getElementById('item-count-display'); 
 
         // --- Audio State ---
         let audioContext;
@@ -708,9 +729,9 @@
         let currentTracklist = [];
         let currentTrackIndex = -1;
         let currentPlayingFile = null;
-        let currentLayoutMode = localStorage.getItem('layoutMode') || 'list';
-        let currentMainView = localStorage.getItem('mainView') || 'folder';
-        let playerState = localStorage.getItem('playerState') || 'standard';
+        let currentLayoutMode = 'list'; 
+        let currentMainView = 'folder';   
+        let playerState = 'super-minimized'; 
         let isNavigatingViaPopState = false; 
 
         // --- Caching ---
@@ -728,14 +749,14 @@
             }
             history.replaceState({ path: currentDirectory }, document.title, buildUrlQuery(currentDirectory));
             
-            loadSettings();
+            loadSettings(); 
             setupAudioContext();
             loadArchiveStructure(); 
             setupEventListeners();
-            updatePlayerUI();
-            applyLayoutMode();
-            applyMainViewMode(); // This will also handle initial item count display visibility
-            applyPlayerState(); 
+            // updatePlayerUI(); // Called within applyPlayerState or after loading now
+            applyLayoutMode(); 
+            applyMainViewMode(); 
+            applyPlayerState();  
             showSearchHintIfNeeded();
             populateSkeletonLoaders();
         });
@@ -768,9 +789,18 @@
         function loadSettings() {
              currentVolume = parseFloat(localStorage.getItem('playerVolume') || '0.7');
              currentPlaybackRate = parseFloat(localStorage.getItem('playerRate') || '1.0');
-             playerState = localStorage.getItem('playerState') || 'standard';
-             currentLayoutMode = localStorage.getItem('layoutMode') || 'grid';
-             currentMainView = localStorage.getItem('mainView') || 'folder';
+
+             const savedPlayerState = localStorage.getItem('playerState');
+             if (savedPlayerState) playerState = savedPlayerState;
+             else playerState = 'super-minimized'; // Explicit default if nothing saved
+
+             const savedLayoutMode = localStorage.getItem('layoutMode');
+             if (savedLayoutMode) currentLayoutMode = savedLayoutMode;
+             else currentLayoutMode = 'list'; // Explicit default
+
+             const savedMainView = localStorage.getItem('mainView');
+             if (savedMainView) currentMainView = savedMainView;
+             else currentMainView = 'folder'; // Explicit default
 
              volumeSlider.value = currentVolume;
              pitchSlider.value = currentPlaybackRate;
@@ -795,7 +825,7 @@
                         document.removeEventListener('keydown', initAudio);
                     } catch (e) {
                         console.error("Error creating AudioContext:", e);
-                        displayStatus("Error: Web Audio API setup failed.", true);
+                        displayStatus(`Web Audio API setup failed. ${sanitizeErrorMessage(e.message, "AudioContext creation")}`, true);
                     }
                 }
             };
@@ -815,11 +845,39 @@
                 updateMainViewToggleButtons();
                 hideInitialLoading();
             } catch (error) {
-                console.error('Error loading archive:', error);
-                displayStatus(`Error loading archive: ${error.message}`, true);
+                console.error('Error loading archive:', error); 
+                displayStatus(`Error loading archive. ${sanitizeErrorMessage(error.message, `Archive metadata fetch`)}`, true);
                 hideInitialLoading();
             }
         }
+        
+        function sanitizeErrorMessage(message, contextInfo = "") {
+            let userMessage = "An error occurred.";
+            const originalFullError = `Original error context: ${contextInfo} | Message: ${message}`;
+            console.error(originalFullError); 
+
+            if (typeof message !== 'string') message = "Internal error detail unavailable.";
+
+            const lowerMessage = message.toLowerCase();
+
+            if (lowerMessage.includes("http error") || lowerMessage.includes("status:") || lowerMessage.includes("failed to fetch") || lowerMessage.includes("networkerror")) {
+                userMessage = "Network problem: Could not load required data.";
+            } else if (lowerMessage.includes("decodeaudio") || lowerMessage.includes("decode")) {
+                userMessage = "Audio format error: Could not decode the audio file.";
+            } else if (lowerMessage.includes("aborted") || lowerMessage.includes("abort")) {
+                if (lowerMessage.includes("timeout")) {
+                     userMessage = "Operation timed out. Please check your connection and try again.";
+                } else {
+                    userMessage = "Operation was cancelled or interrupted.";
+                }
+            } else if (lowerMessage.includes("timeout")) {
+                userMessage = "Operation timed out. Please check your connection and try again.";
+            } else {
+                userMessage = "An unexpected issue occurred. Please try again later.";
+            }
+            return userMessage;
+        }
+
 
         function processRawFiles(rawFiles) {
              const fileMap = new Map(rawFiles.map(f => [f.name, f]));
@@ -852,7 +910,7 @@
               });
          }
 
-        function showInitialLoading() { populateSkeletonLoaders(); showSkeletonLoader(true); statusMessageEl.innerHTML = `<span class="loader"></span>Loading archive... Please wait. (Desktop View Preferred)`; statusMessageEl.classList.add('visible'); fileBrowserContainerEl.innerHTML = ''; if (itemCountDisplayEl) itemCountDisplayEl.style.display = 'none'; }
+        function showInitialLoading() { populateSkeletonLoaders(); showSkeletonLoader(true); statusMessageEl.innerHTML = `<span class="loader"></span>Loading archive... Please wait.`; statusMessageEl.classList.add('visible'); fileBrowserContainerEl.innerHTML = ''; if (itemCountDisplayEl) itemCountDisplayEl.style.display = 'none'; }
         function hideInitialLoading() { hideSkeletonLoader(); if (statusMessageEl.textContent.includes("Loading archive")) { statusMessageEl.classList.remove('visible'); statusMessageEl.innerHTML = ''; } }
         function showSkeletonLoader(show) { populateSkeletonLoaders(); skeletonLoaderEl.style.display = show ? (currentLayoutMode === 'grid' ? 'grid' : 'flex') : 'none'; skeletonLoaderEl.className = `file-browser-${currentLayoutMode}${show ? ' visible': ''}`; }
         function hideSkeletonLoader() { skeletonLoaderEl.style.display = 'none'; }
@@ -863,7 +921,7 @@
         
         function applyMainViewMode() {
             updateMainViewToggleButtons();
-            updateBreadcrumbs(); // Depends on currentMainView
+            updateBreadcrumbs(); 
             const showFolderControls = currentMainView === VIEW_MODE_FOLDER;
             gridListToggleContainer.style.display = showFolderControls ? 'flex' : 'none';
             
@@ -872,7 +930,6 @@
                 if (!showFolderControls) {
                     itemCountDisplayEl.textContent = '';
                 } else {
-                    // If switching back to folder view, ensure count is updated
                     updateItemCountDisplay(); 
                 }
             }
@@ -897,7 +954,7 @@
                 } else {
                     text = "No tracks found";
                 }
-            } else { // Folder view
+            } else { 
                 const numFolders = items.filter(item => item.isDirectory).length;
                 const numAudioFiles = items.filter(item => item.isAudio).length;
 
@@ -908,12 +965,12 @@
                 } else if (numAudioFiles > 0) {
                     text = `${numAudioFiles} track${numAudioFiles > 1 ? 's' : ''}`;
                 } else if (count === 0) {
-                    if (currentDirectory !== '' && currentDirectory !== undefined) { // Check currentDirectory to distinguish root
+                    if (currentDirectory !== '' && currentDirectory !== undefined) { 
                          text = "Empty folder";
                     } else { 
                          text = "Archive empty";
                     }
-                } else if (count > 0) { // Fallback for items that are neither folders nor audio (if any)
+                } else if (count > 0) { 
                     text = `${count} item${count > 1 ? 's' : ''}`;
                 } else {
                      text = ""; 
@@ -921,8 +978,6 @@
             }
             
             itemCountDisplayEl.textContent = text;
-            // Ensure visibility is handled by applyMainViewMode for general view changes,
-            // but if folder view is active, visibility depends on whether there's text.
             if (currentMainView === VIEW_MODE_FOLDER) {
                  itemCountDisplayEl.style.display = text ? 'inline' : 'none';
             }
@@ -956,23 +1011,19 @@
             currentTracklist = items.filter(item => item.isAudio); 
             currentTrackIndex = currentPlayingFile ? currentTracklist.findIndex(track => track.path === currentPlayingFile.path) : -1; 
             updatePrevNextButtons(); 
-            updateItemCountDisplay(); // Update count based on new items
+            updateItemCountDisplay(); 
             gridListToggleContainer.style.display = 'flex'; 
             requestAnimationFrame(() => { 
                 renderFileBrowser(items); 
                 hideSkeletonLoader(); 
-                if (items.length === 0 && (!path || path === '')) { // Changed to check for root explicitly
-                    // DisplayStatus will hide item count, updateItemCountDisplay handles specific message for empty
+                if (items.length === 0 && (!path || path === '')) { 
                 } else if (items.length === 0) {
-                    // updateItemCountDisplay shows "Empty folder"
                 }
-                // If items.length > 0, hide general loading/status messages
                 if (items.length > 0 && statusMessageEl.classList.contains('visible') && !statusMessageEl.textContent.toLowerCase().includes('error')) {
                      hideLoading();
                 } else if (items.length === 0 && (!path || path === '')) {
-                    displayStatus("Archive empty or failed load.", false); // Keep status for empty root
+                    displayStatus(`Archive empty or failed load. ${sanitizeErrorMessage("Empty root directory or load failure", "updateDirectoryView-empty-root")}`, false); 
                 } else if (items.length === 0) {
-                    // For empty subfolders, rely on itemCountDisplay, don't show big status message
                     if (statusMessageEl.classList.contains('visible') && !statusMessageEl.textContent.toLowerCase().includes('error')) {
                          hideLoading();
                     }
@@ -984,16 +1035,9 @@
 
         function renderFileBrowser(items) {
             fileBrowserContainerEl.innerHTML = ''; fileBrowserContainerEl.className = ''; 
-            // Item count is updated before this by updateDirectoryView or handleSearch
-
             if (items.length === 0) {
-                // updateItemCountDisplay handles the "Empty folder" or "No results" message
-                // No need to display a large status message here if itemCountDisplay covers it
-                // unless it's a root empty state or error, handled by displayStatus
                 return;
             }
-
-
             const allRenderedItems = fileBrowserContainerEl.querySelectorAll('.file-item-list.playing-track, .file-item-grid.playing-track');
             allRenderedItems.forEach(it => it.classList.remove('playing-track'));
 
@@ -1044,7 +1088,7 @@
             currentDirectoryItems = results; currentTracklist = results; 
             currentTrackIndex = currentPlayingFile ? currentTracklist.findIndex(track => track.path === currentPlayingFile.path) : -1; 
             updatePrevNextButtons(); 
-            updateItemCountDisplay(); // Update count for search results
+            updateItemCountDisplay(); 
             directoryPathEl.innerHTML = ''; 
             const searchCrumb = createFolderCrumb(`Search: "${searchBox.value}"`, '', true); directoryPathEl.appendChild(searchCrumb); 
             gridListToggleContainer.style.display = 'flex'; 
@@ -1052,8 +1096,6 @@
                 renderFileBrowser(results); 
                 hideSkeletonLoader(); 
                 if (results.length === 0) {
-                    // displayStatus will hide itemCountDisplay, but updateItemCountDisplay will show "No tracks found"
-                    // No need for a large status message if itemCountDisplay covers it.
                      if (statusMessageEl.classList.contains('visible') && !statusMessageEl.textContent.toLowerCase().includes('error')) {
                          hideLoading();
                     }
@@ -1129,7 +1171,7 @@
                 currentPlayingFile.metadata = cachedData.metadata; currentPlayingFile.title = cachedData.metadata?.title || currentPlayingFile.title; currentPlayingFile.artist = cachedData.metadata?.artist || currentPlayingFile.artist; currentPlayingFile.album = cachedData.metadata?.album || currentPlayingFile.album; currentPlayingFile.duration = currentAudioBuffer?.duration;
                 displayMetadataInPlayer(cachedData.metadata);
                 if (currentAudioBuffer) { startPlayback(0); updatePlayerUI(); updateFileDurationInList(file.path, currentAudioBuffer.duration); }
-                else { console.error("Invalid cached buffer:", file.path); audioCache.delete(file.path); updatePlayerUI(false); displayStatus(`Error: Invalid cached audio`, true); stopPlayback(true); }
+                else { console.error("Invalid cached buffer:", file.path); audioCache.delete(file.path); updatePlayerUI(false); displayStatus(`Error: Invalid cached audio. ${sanitizeErrorMessage("Invalid cached buffer", file.path)}`, true); stopPlayback(true); }
                 updatePrevNextButtons(); return;
             }
 
@@ -1171,14 +1213,18 @@
                 updatePrevNextButtons(); 
                 updateFileDurationInList(file.path, currentAudioBuffer?.duration);
             } catch (error) {
-                console.error(`Error processing ${file.path}:`, error);
                 albumArtLoader.classList.remove('visible'); albumArtIcon.classList.remove('hidden');
                 if (error.name === 'AbortError') {
-                    console.log(`Request for ${file.path} was aborted intentionally.`);
+                    console.log(`Request for ${file.path} was aborted: ${error.message}`);
                     if (currentPlayingFile && file.path === currentPlayingFile.path) cleanupPlaybackResources();
                 } else {
-                    if (currentPlayingFile && file.path === currentPlayingFile.path) { stopPlayback(true); displayStatus(`Error playing ${file.displayName || file.path}: ${error.message || 'Unknown error'}`, true); updatePlayerUI(false); }
-                    else console.warn("Error occurred for a file no longer targeted:", file.path);
+                    if (currentPlayingFile && file.path === currentPlayingFile.path) { 
+                        stopPlayback(true); 
+                        displayStatus(`Error playing "${file.displayName || 'track'}". ${sanitizeErrorMessage(error.message, `Play attempt for: ${file.path}`)}`, true); 
+                        updatePlayerUI(false); 
+                    } else {
+                        console.warn("Error occurred for a file no longer targeted:", file.path, error);
+                    }
                 }
             }
         }
@@ -1192,7 +1238,7 @@
                 attempts++; const timeoutId = setTimeout(() => currentFetchController.abort("Timeout"), timeout);
                 try {
                     if (attempts > 1) { 
-                        console.log(`Retrying fetch ${url} (${attempts})...`); 
+                        console.log(`Retrying fetch (Attempt ${attempts}/${retries + 1})... Context: ${isForPlayback ? 'Playback' : 'Download'}`); 
                         if (isForPlayback) {
                             updatePlayerUI(true, `Retrying (${attempts}/${retries})...`);
                             if(progressCallback && albumArtLoader.classList.contains('visible')) progressCallback(-1,0,0); 
@@ -1228,16 +1274,51 @@
                     }
                 } catch (error) {
                     clearTimeout(timeoutId);
-                    if (error.name === 'AbortError') { console.warn(`Fetch aborted ${url}: ${error.message}`); if (isForPlayback && currentFetchController === fetchAbortController) fetchAbortController = null; throw error; }
-                    else console.error(`Fetch error ${url} (Attempt ${attempts}):`, error);
-                    if (attempts > retries) { if (isForPlayback && currentFetchController === fetchAbortController) fetchAbortController = null; throw new Error(`Fetch failed ${url} after ${retries + 1} attempts: ${error.message}`); }
+                    console.error(`Fetch error (Attempt ${attempts}, URL: ${isForPlayback ? 'Playback URL' : 'Download URL'}):`, error);
+                    if (error.name === 'AbortError') { 
+                        if (isForPlayback && currentFetchController === fetchAbortController) fetchAbortController = null; 
+                        throw error; 
+                    }
+                    if (attempts > retries) { 
+                        if (isForPlayback && currentFetchController === fetchAbortController) fetchAbortController = null; 
+                        throw new Error(`Fetch failed after ${retries + 1} attempts: ${error.message}`); 
+                    }
                 }
             }
-            throw new Error(`Fetch failed ${url} unexpectedly.`);
+            throw new Error(`Fetch failed unexpectedly. Context: ${isForPlayback ? 'Playback' : 'Download'}`);
         }
         function cleanupPlaybackResources() { clearInterval(progressUpdateInterval); progressUpdateInterval = null; if (sourceNode) { try { sourceNode.onended = null; sourceNode.disconnect(); if (isPlaying || audioContext?.state === 'running') sourceNode.stop(); } catch (e) {} sourceNode = null; } if (fetchAbortController) { fetchAbortController.abort("Playback stopped/changed"); fetchAbortController = null; } }
         function startPlayback(offset = 0) { if (!currentAudioBuffer || !audioContext || !gainNode) { stopPlayback(true); return; } if (audioContext.state === 'suspended') audioContext.resume().then(() => _performStartPlayback(offset)).catch(err => { console.error("Resume failed", err); stopPlayback(true); }); else _performStartPlayback(offset); }
-        function _performStartPlayback(offset) { if (!audioContext || !currentAudioBuffer) return; cleanupPlaybackResources(); sourceNode = audioContext.createBufferSource(); sourceNode.buffer = currentAudioBuffer; sourceNode.playbackRate.value = currentPlaybackRate; sourceNode.connect(gainNode); const validOffset = Math.max(0, Math.min(offset, currentAudioBuffer.duration)); _startOffset = validOffset; _startTime = audioContext.currentTime; _pausedTime = 0; try { sourceNode.start(0, validOffset); isPlaying = true; } catch (e) { console.error("Error starting source node:", e); stopPlayback(true); return; } sourceNode.onended = handleTrackEnd; progressUpdateInterval = setInterval(updateProgress, 250); updatePlayerUI(); }
+        function _performStartPlayback(offset) { 
+            if (!audioContext || !currentAudioBuffer) return; 
+            cleanupPlaybackResources(); 
+            sourceNode = audioContext.createBufferSource(); 
+            sourceNode.buffer = currentAudioBuffer; 
+            sourceNode.playbackRate.value = currentPlaybackRate; 
+            sourceNode.connect(gainNode); 
+            const validOffset = Math.max(0, Math.min(offset, currentAudioBuffer.duration)); 
+            _startOffset = validOffset; 
+            _startTime = audioContext.currentTime; 
+            _pausedTime = 0; 
+            try { 
+                sourceNode.start(0, validOffset); 
+                isPlaying = true; 
+            } catch (e) { 
+                console.error("Error starting source node:", e); 
+                stopPlayback(true); 
+                displayStatus(`Playback start error. ${sanitizeErrorMessage(e.message, "SourceNode start")}`, true);
+                return; 
+            } 
+            sourceNode.onended = handleTrackEnd; 
+            progressUpdateInterval = setInterval(updateProgress, 250); 
+            
+            if (isPlaying && (playerState === 'minimized' || playerState === 'super-minimized')) {
+                playerState = 'standard';
+                applyPlayerState(); 
+                saveSetting('playerState', playerState);
+            }
+            updatePlayerUI(); 
+        }
         function stopPlayback(clearInfo = false) { 
             if (isPlaying && sourceNode && audioContext) _pausedTime = getCurrentPlaybackTime(); 
             isPlaying = false; 
@@ -1254,6 +1335,7 @@
                 const allItems = fileBrowserContainerEl.querySelectorAll('.file-item-list.playing-track, .file-item-grid.playing-track');
                 allItems.forEach(it => it.classList.remove('playing-track'));
                 updatePlayerUI(); updatePrevNextButtons(); 
+                applyPlayerState(); // Ensure mini-title is updated if player is minimized
             } else if (currentAudioBuffer) { updatePlayerUI(); updateProgress(); } else updatePlayerUI(); 
         }
         function togglePlayback() { if (!currentAudioBuffer || !audioContext) return; if (isPlaying) stopPlayback(false); else { const resumeTime = (_pausedTime > 0 && currentAudioBuffer && _pausedTime < currentAudioBuffer.duration) ? _pausedTime : 0; startPlayback(resumeTime); } }
@@ -1301,7 +1383,7 @@
             activeDownloads.set(filePath, downloadController);
 
             try {
-                const response = await fetch(fileUrl, { signal: downloadController.signal });
+                const response = await fetch(fileUrl, { signal: downloadController.signal }); 
                 if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
                 if (!response.body) throw new Error("ReadableStream not supported.");
 
@@ -1350,12 +1432,13 @@
                 setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
 
             } catch (error) {
+                const userFriendlyError = sanitizeErrorMessage(error.message, `Download failed for: ${filePath}`);
                 if (error.name === 'AbortError') {
-                    console.log(`Download aborted: ${filename}`, error.message);
+                    console.log(`Download aborted: ${filename}`); 
                     if (progressTextElement) progressTextElement.textContent = 'X';
                 } else {
-                    console.error(`Download failed: ${filename}`, error);
-                    alert(`Failed to download "${filename}".\nError: ${error.message}`);
+                    console.error(`Download failed for ${filename}:`, error);
+                    alert(`Failed to download "${filename}".\n${userFriendlyError}`);
                     if (progressTextElement) progressTextElement.textContent = 'ERR';
                 }
             } finally {
@@ -1387,6 +1470,23 @@
             jumpToFolderBtn.disabled = !hasActiveTrack; 
             volumeSlider.disabled = !audioContext;
             updatePrevNextButtons();
+
+            if (miniTitleEl && (playerState === 'super-minimized')) {
+                miniTitleEl.removeEventListener('click', expandPlayerToStandard); // Remove first
+                miniTitleEl.style.cursor = 'default';
+                if (isLoading) {
+                    const briefMessage = loadingMessage.includes('...') ? loadingMessage.split('...')[0] : loadingMessage;
+                    miniTitleEl.textContent = briefMessage;
+                } else if (hasActiveTrack) {
+                     miniTitleEl.textContent = currentPlayingFile.metadata?.title || currentPlayingFile.title || currentPlayingFile.displayName || "Now Playing";
+                } else {
+                     miniTitleEl.innerHTML = '<i class="fas fa-headphones-alt" style="margin-right: 5px; font-size: 0.9em;"></i>';
+                     miniTitleEl.title = "Expand Player";
+                     miniTitleEl.style.cursor = 'pointer';
+                     miniTitleEl.addEventListener('click', expandPlayerToStandard);
+                }
+            }
+
 
             if (isLoading) {
                 if (loadingMessage.startsWith('Downloading') || loadingMessage.startsWith('Connecting') || loadingMessage.startsWith('Retrying')) {
@@ -1430,11 +1530,18 @@
                 if (playPauseIcon) playPauseIcon.className = 'fas fa-play'; playPauseBtn.disabled = true; pitchSlider.disabled = true; revertSpeedBtn.disabled = true; downloadBtn.disabled = true; jumpToFolderBtn.disabled = true; prevBtn.disabled = true; nextBtn.disabled = true;
                 durationEl.textContent = '0:00'; currentTimeEl.textContent = '0:00'; progressBar.style.width = '0%'; miniProgressBar.style.setProperty('--progress-width', `0%`);
             }
-            applyPlayerState(); 
         }
         function updateProgress() { if (!audioContext || !currentAudioBuffer || !isFinite(currentAudioBuffer.duration)) { currentTimeEl.textContent = '0:00'; progressBar.style.width = '0%'; miniProgressBar.style.setProperty('--progress-width', `0%`); return; } const currentPosition = getCurrentPlaybackTime(); const duration = currentAudioBuffer.duration; currentTimeEl.textContent = formatTime(currentPosition); if(durationEl.textContent === '--:--' || durationEl.textContent === '0:00') durationEl.textContent = formatTime(duration); const progressPercent = (duration > 0) ? (currentPosition / duration) * 100 : 0; const progressWidth = `${Math.min(100, Math.max(0, progressPercent))}%`; if (progressBar.style.width !== progressWidth) progressBar.style.width = progressWidth; if (miniProgressBar.style.getPropertyValue('--progress-width') !== progressWidth) miniProgressBar.style.setProperty('--progress-width', progressWidth); }
         function updateVolumeIcon(volume) { if (!volumeIcon) return; if (volume <= 0) volumeIcon.className = 'fas fa-volume-mute'; else if (volume < 0.5) volumeIcon.className = 'fas fa-volume-down'; else volumeIcon.className = 'fas fa-volume-up'; }
         function updatePrevNextButtons() { const canNavigate = currentTracklist && currentTracklist.length > 0 && currentTrackIndex !== -1; prevBtn.disabled = !canNavigate; nextBtn.disabled = !canNavigate; }
+
+        function expandPlayerToStandard() {
+            if (playerState !== 'standard') {
+                playerState = 'standard';
+                applyPlayerState();
+                saveSetting('playerState', playerState);
+            }
+        }
 
         function cyclePlayerState() {
             if (playerState === 'standard') playerState = 'minimized';
@@ -1448,30 +1555,55 @@
             playerSection.classList.remove('minimized', 'super-minimized', 'standard'); 
             bodyEl.classList.remove('player-minimized', 'player-super-minimized', 'player-standard');
 
-            const toggleIcon = playerToggleBtn.querySelector('.toggle-icon i');
-            const miniTitleEl = document.getElementById('mini-title');
+            const toggleIconEl = playerToggleBtn.querySelector('.toggle-icon i');
+            
+            // Handle mini-title content and interactivity first based on player state
+            if (miniTitleEl) {
+                miniTitleEl.removeEventListener('click', expandPlayerToStandard); // Always remove first
+                miniTitleEl.style.cursor = 'default'; // Default to not clickable
+                miniTitleEl.title = ''; // Clear old tooltip
+
+                if (playerState === 'super-minimized') {
+                    // updatePlayerUI will handle setting text content for loading/playing states
+                    // This sets the default (no song playing)
+                    if (!currentPlayingFile && !(playPauseIcon && playPauseIcon.classList.contains('fa-spinner'))) { // Check if not loading
+                         miniTitleEl.innerHTML = '<i class="fas fa-headphones-alt" style="margin-right: 5px; font-size: 0.9em;"></i>';
+                         miniTitleEl.title = "Expand Player";
+                         miniTitleEl.style.cursor = 'pointer';
+                         miniTitleEl.addEventListener('click', expandPlayerToStandard);
+                    } else if (currentPlayingFile && !(playPauseIcon && playPauseIcon.classList.contains('fa-spinner'))) {
+                         miniTitleEl.textContent = currentPlayingFile.metadata?.title || currentPlayingFile.title || currentPlayingFile.displayName || "Now Playing";
+                    } // Else (loading state) it's handled by updatePlayerUI's direct miniTitleEl update
+                } else {
+                    miniTitleEl.innerHTML = ''; // Clear for standard or regular minimized
+                }
+            }
+
 
             if (playerState === 'minimized') {
                 playerSection.classList.add('minimized');
                 bodyEl.classList.add('player-minimized');
-                if (toggleIcon) toggleIcon.className = 'fas fa-caret-up'; 
+                if (toggleIconEl) toggleIconEl.className = 'fas fa-caret-up'; 
                 playerToggleBtn.title = "Further Minimize Player";
-                if (miniTitleEl) miniTitleEl.textContent = (currentPlayingFile ? (currentPlayingFile.metadata?.title || currentPlayingFile.title || currentPlayingFile.displayName || "Now Playing") : "Player"); 
+                playerToggleBtn.style.display = 'flex'; 
             } else if (playerState === 'super-minimized') {
                 playerSection.classList.add('super-minimized');
                 bodyEl.classList.add('player-super-minimized');
-                if (toggleIcon) toggleIcon.className = 'fas fa-expand-alt'; 
+                if (toggleIconEl) toggleIconEl.className = 'fas fa-expand-alt'; 
                 playerToggleBtn.title = "Expand Player";
-                if (miniTitleEl) {
-                     miniTitleEl.textContent = currentPlayingFile ? (currentPlayingFile.metadata?.title || currentPlayingFile.title || currentPlayingFile.displayName || "Now Playing") : "Player";
-                }
+                playerToggleBtn.style.display = 'flex'; 
             } else { // standard
                 playerSection.classList.add('standard'); 
                 bodyEl.classList.add('player-standard');
-                if (toggleIcon) toggleIcon.className = 'fas fa-chevron-down';
+                if (toggleIconEl) toggleIconEl.className = 'fas fa-chevron-down';
                 playerToggleBtn.title = "Minimize Player";
-                if (miniTitleEl) miniTitleEl.textContent = ''; 
+                playerToggleBtn.style.display = (window.innerWidth <= 768) ? 'flex' : 'none';
             }
+            // Call updatePlayerUI to ensure its state-dependent parts are correct,
+            // especially if applyPlayerState was called without a direct preceding updatePlayerUI call.
+            // Pass false for isLoading unless we specifically know we're in a loading phase.
+            const isLoadingNow = playPauseIcon && playPauseIcon.classList.contains('fa-spinner');
+            updatePlayerUI(isLoadingNow, isLoadingNow ? (nowPlayingArtistAlbumEl.textContent || "Loading...") : undefined);
         }
 
         function formatTime(seconds) { if (isNaN(seconds) || !isFinite(seconds) || seconds < 0) return '0:00'; const totalSeconds = Math.floor(seconds); const mins = Math.floor(totalSeconds / 60); const secs = totalSeconds % 60; return `${mins}:${secs.toString().padStart(2, '0')}`; }
@@ -1496,6 +1628,8 @@
             });
 
             playerToggleBtn.addEventListener('click', cyclePlayerState); 
+            // Note: miniTitleEl click listener is managed dynamically in applyPlayerState/updatePlayerUI
+
             progressWrapper.addEventListener('click', (e) => { if (!currentAudioBuffer || !audioContext) return; const rect = progressWrapper.getBoundingClientRect(); const clickX = e.clientX - rect.left; const ratio = Math.max(0, Math.min(1, clickX / rect.width)); const seekTime = ratio * currentAudioBuffer.duration; _pausedTime = seekTime; if (isPlaying) startPlayback(seekTime); else { _startOffset = seekTime; updateProgress(); } });
             volumeSlider.addEventListener('input', () => { currentVolume = parseFloat(volumeSlider.value); if (gainNode && audioContext) gainNode.gain.setTargetAtTime(currentVolume, audioContext.currentTime, 0.015); updateVolumeIcon(currentVolume); });
             volumeSlider.addEventListener('change', () => saveSetting('playerVolume', currentVolume));
@@ -1533,7 +1667,6 @@
                     if (currentMainView !== VIEW_MODE_FOLDER) {
                         currentDirectory = event.state.path; 
                         setMainViewMode(VIEW_MODE_FOLDER); 
-                        // updateDirectoryView will be called by setMainViewMode using the now-updated currentDirectory
                     } else {
                          updateDirectoryView(event.state.path);
                     }
@@ -1541,6 +1674,11 @@
                     updateDirectoryView('');
                 }
                 isNavigatingViaPopState = false; 
+            });
+
+            window.addEventListener('resize', () => {
+                // Re-evaluate player toggle button visibility on resize
+                applyPlayerState(); 
             });
         }
     </script>
